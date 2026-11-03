@@ -1,67 +1,60 @@
-# FitSense local stack.
-#
-#   docker compose up -d mysql                     # DB only; backend runs from the IDE/CLI (fast restart)
-#   docker compose --profile full up --build       # MySQL + backend in containers
-#
-# Copy .env.example to .env first. The project name is intentionally unique so this
-# database never collides with another project's default MySQL volume.
-
-name: fitsense-app
-
 services:
+
   mysql:
     image: mysql:8.4
     container_name: fitsense-mysql
+
+    restart: unless-stopped
+
     environment:
-      MYSQL_DATABASE: ${DB_NAME:-fitsense}
-      MYSQL_USER: ${DB_USER:-fitsense}
-      MYSQL_PASSWORD: ${DB_PASSWORD:-fitsense}
-      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-root}
-      TZ: UTC
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
+      MYSQL_DATABASE: fitsense_db
+
     ports:
-      - "${DB_PORT:-3307}:3306"
-    command:
-      - --character-set-server=utf8mb4
-      - --collation-server=utf8mb4_0900_ai_ci
+      - "3306:3306"
+
     volumes:
-      - mysql-data:/var/lib/mysql
+      - mysql_data:/var/lib/mysql
+
     healthcheck:
-      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u root -p$$MYSQL_ROOT_PASSWORD --silent"]
+      test:
+        [
+          "CMD",
+          "mysqladmin",
+          "ping",
+          "-h",
+          "localhost",
+          "-uroot",
+          "-p${DB_PASSWORD}"
+        ]
       interval: 10s
       timeout: 5s
-      retries: 12
-      start_period: 40s
+      retries: 10
 
   backend:
-    profiles: ["full"]
     build:
-      context: ./FitSenseBackend
+      context: ./fitsense-backend
+
     container_name: fitsense-backend
+
+    restart: unless-stopped
+
+    env_file:
+      - .env
+
+    environment:
+      DB_URL: jdbc:mysql://mysql:3306/fitsense_db?serverTimezone=UTC
+      FIREBASE_SERVICE_ACCOUNT_PATH: /run/secrets/firebase-service-account.json
+
+    ports:
+      - "8080:8080"
+
+    volumes:
+      - ./secrets/firebase-service-account.json:/run/secrets/firebase-service-account.json:ro
+
     depends_on:
       mysql:
         condition: service_healthy
-    environment:
-      DB_HOST: mysql
-      DB_PORT: "3306"
-      DB_NAME: ${DB_NAME:-fitsense}
-      DB_USER: ${DB_USER:-fitsense}
-      DB_PASSWORD: ${DB_PASSWORD:-fitsense}
-      SERVER_PORT: "8080"
-      FITSENSE_AUTH_MODE: ${FITSENSE_AUTH_MODE:-firebase}
-      FITSENSE_DEV_TOKEN: ${FITSENSE_DEV_TOKEN:-}
-      FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID:-}
-      # Firebase credentials are mounted read-only, never baked into the image.
-      GOOGLE_APPLICATION_CREDENTIALS: /run/secrets/firebase-service-account.json
-    ports:
-      - "${SERVER_PORT:-8080}:8080"
-    volumes:
-      - ${FIREBASE_SERVICE_ACCOUNT_PATH:-./secrets/firebase-service-account.json}:/run/secrets/firebase-service-account.json:ro
-    healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/api/health | grep -q 'UP'"]
-      interval: 15s
-      timeout: 5s
-      retries: 10
-      start_period: 90s
 
 volumes:
-  mysql-data:
+  mysql_data:
