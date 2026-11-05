@@ -2,7 +2,6 @@ package com.example.fitsense.auth.filter;
 
 import com.example.fitsense.common.security.CurrentUser;
 import com.google.firebase.auth.FirebaseAuth;
-import com.google.firebase.auth.FirebaseAuthException;
 import com.google.firebase.auth.FirebaseToken;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -43,6 +42,11 @@ public class FirebaseAuthenticationFilter extends OncePerRequestFilter {
                         .setAuthentication(authentication);
             } catch (Exception e) {
                 SecurityContextHolder.clearContext();
+                response.sendError(
+                        HttpServletResponse.SC_UNAUTHORIZED,
+                        "Invalid Firebase token"
+                );
+                return;
             }
         }
 
