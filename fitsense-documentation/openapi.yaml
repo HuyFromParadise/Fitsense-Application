@@ -1,0 +1,1084 @@
+openapi: 3.0.3
+info:
+  title: FitSense API
+  version: 0.1.0
+  description: |
+    Bản đồ toàn bộ endpoint của FitSense, kể cả endpoint chưa làm (controller trả 501 cho tới khi feature merge).
+    Mỗi người chỉ sửa endpoint của feature mình, commit riêng.
+
+    Quy ước:
+    - Xác thực `Authorization: Bearer <Firebase ID token>`; backend profile `dev` chấp nhận token tĩnh.
+    - Thời gian ISO-8601 UTC; ngày `YYYY-MM-DD` theo giờ địa phương, gửi kèm `timezoneId`.
+    - `id` của exercise do client sinh (UUID) để chống tạo trùng: trùng UUID trả bản đã có.
+    - Mọi response bọc trong `ApiResponse`; HTTP status thật nằm ở status code.
+servers:
+  - url: http://localhost:8080
+    description: Backend trên máy dev (máy thật dùng `adb reverse tcp:8080 tcp:8080`)
+tags:
+  - name: Health
+  - name: User
+    description: F1 — A
+  - name: Activity
+    description: F5 — B
+  - name: Exercise
+    description: F2 — A
+  - name: Goal
+    description: F7 — B
+  - name: Analytics
+    description: F3 — A
+  - name: Sync
+    description: F8 — B (server side của từng feature do chủ feature viết)
+  - name: Notification
+    description: F4 — A
+security:
+  - bearerAuth: []
+paths:
+  /api/health:
+    get:
+      tags: [Health]
+      security: []
+      summary: Health check công khai
+      responses:
+        "200":
+          description: Backend sống
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiResponse"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/HealthStatus"
+
+  /api/ping-auth:
+    get:
+      tags: [Health]
+      summary: Kiểm tra token (khung ngày 1)
+      responses:
+        "200":
+          description: Token hợp lệ
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiResponse"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          message:
+                            type: string
+                          firebaseUid:
+                            type: string
+                          userId:
+                            type: string
+                          timestamp:
+                            type: string
+                            format: date-time
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/users/me:
+    get:
+      tags: [User]
+      summary: Lấy user hiện tại, tự tạo theo firebase_uid lần đầu
+      responses:
+        "200":
+          description: User hiện tại
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiResponse"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/User"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    put:
+      tags: [User]
+      summary: Cập nhật profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserUpdateRequest"
+      responses:
+        "200":
+          description: Profile sau khi cập nhật
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiResponse"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/User"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+    delete:
+      tags: [User]
+      summary: Xóa tài khoản (MySQL cascade, Firestore, Firebase Auth)
+      responses:
+        "204":
+          description: Đã xóa
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/activities/daily:
+    get:
+      tags: [Activity]
+      summary: Tổng hoạt động một ngày (mặc định hôm nay)
+      parameters:
+        - name: date
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: timezoneId
+          in: query
+          schema:
+            type: string
+            example: Asia/Ho_Chi_Minh
+      responses:
+        "200":
+          description: Daily activity
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiResponse"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/DailyActivity"
+
+  /api/activities/history:
+    get:
+      tags: [Activity]
+      summary: Lịch sử hoạt động theo ngày, phân trang
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Size"
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Trang daily activity
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiResponse"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/DailyActivityPage"
+
+  /api/activities/sync:
+    post:
+      tags: [Activity]
+      summary: Đẩy daily summary lên server (bản đầu của F8, dùng bởi DailyActivitySyncHandler)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [items]
+              properties:
+                items:
+                  type: array
+                  maxItems: 31
+                  items:
+                    $ref: "#/components/schemas/DailyActivityUpsert"
+      responses:
+        "200":
+          description: Kết quả theo từng mục
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiResponse"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/SyncItemResult"
+
+  /api/exercises:
+    post:
+      tags: [Exercise]
+      summary: Tạo buổi tập (session + gps points + metrics trong một transaction)
+      description: Idempotent theo `id` (UUID sinh ở client). Trùng thì trả `200` kèm bản đã có.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExerciseCreateRequest"
+      responses:
+        "201":
+          description: Đã tạo
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiResponse"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/ExerciseSummary"
+        "200":
+          description: Trùng UUID, trả bản đã có
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiResponse"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/ExerciseSummary"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+    get:
+      tags: [Exercise]
+      summary: Danh sách buổi tập, phân trang
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Size"
+        - name: type
+          in: query
+          schema:
+            $ref: "#/components/schemas/ExerciseType"
+      responses:
+        "200":
+          description: Trang buổi tập
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiResponse"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/ExercisePage"
+
+  /api/exercises/{id}:
+    parameters:
+      - $ref: "#/components/parameters/ExerciseId"
+    get:
+      tags: [Exercise]
+      summary: Chi tiết buổi tập kèm route
+      responses:
+        "200":
+          description: Chi tiết
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiResponse"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/ExerciseDetail"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      tags: [Exercise]
+      summary: Cập nhật buổi tập đã có (kết thúc session đang chạy, đẩy thêm lô GPS)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExerciseUpdateRequest"
+      responses:
+        "200":
+          description: Đã cập nhật
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiResponse"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/ExerciseSummary"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/goals:
+    post:
+      tags: [Goal]
+      summary: Tạo mục tiêu
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GoalUpsertRequest"
+      responses:
+        "201":
+          description: Đã tạo
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiResponse"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/Goal"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+    get:
+      tags: [Goal]
+      summary: Danh sách mục tiêu đang hoạt động
+      responses:
+        "200":
+          description: Danh sách goal
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiResponse"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/Goal"
+
+  /api/goals/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    put:
+      tags: [Goal]
+      summary: Sửa mục tiêu
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GoalUpsertRequest"
+      responses:
+        "200":
+          description: Goal sau khi sửa
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiResponse"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/Goal"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      tags: [Goal]
+      summary: Xóa mục tiêu
+      responses:
+        "204":
+          description: Đã xóa
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/analytics/weekly:
+    get:
+      tags: [Analytics]
+      summary: Thống kê theo tuần, so với tuần trước
+      parameters:
+        - name: weekStart
+          in: query
+          description: Thứ hai của tuần (mặc định tuần hiện tại)
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Thống kê tuần
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiResponse"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/PeriodAnalytics"
+
+  /api/analytics/monthly:
+    get:
+      tags: [Analytics]
+      summary: Thống kê theo tháng
+      parameters:
+        - name: month
+          in: query
+          schema:
+            type: string
+            example: "2026-01"
+      responses:
+        "200":
+          description: Thống kê tháng
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiResponse"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/PeriodAnalytics"
+
+  /api/sync/reconcile:
+    post:
+      tags: [Sync]
+      summary: Đồng bộ offline — điều phối tới SyncProcessor theo entityType
+      description: |
+        Mỗi mục xử lý độc lập. Trạng thái từng mục:
+        `CREATED` (đã tạo), `DUPLICATE` (đã có, bỏ qua), `CONFLICT` (giữ bản server, kèm `serverVersion`
+        để client reconcile), `REJECTED` (dữ liệu sai, kèm `reason` — client không retry).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SyncReconcileRequest"
+      responses:
+        "200":
+          description: Kết quả từng mục
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiResponse"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/SyncReconcileResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+
+  /api/notifications/devices:
+    post:
+      tags: [Notification]
+      summary: Đăng ký FCM token cho thiết bị
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [deviceId, platform, fcmToken]
+              properties:
+                deviceId:
+                  type: string
+                  maxLength: 128
+                platform:
+                  type: string
+                  enum: [android, ios]
+                fcmToken:
+                  type: string
+                  maxLength: 512
+      responses:
+        "204":
+          description: Đã đăng ký / cập nhật
+        "400":
+          $ref: "#/components/responses/ValidationError"
+
+  /api/notifications/settings:
+    get:
+      tags: [Notification]
+      summary: Cài đặt thông báo của user
+      responses:
+        "200":
+          description: Cài đặt
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiResponse"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/NotificationSettings"
+    put:
+      tags: [Notification]
+      summary: Cập nhật cài đặt thông báo
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NotificationSettings"
+      responses:
+        "200":
+          description: Cài đặt sau khi cập nhật
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiResponse"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/NotificationSettings"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: Firebase ID token
+
+  parameters:
+    Page:
+      name: page
+      in: query
+      schema:
+        type: integer
+        minimum: 0
+        default: 0
+    Size:
+      name: size
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+    ExerciseId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+  responses:
+    Unauthorized:
+      description: Thiếu token hoặc token sai/hết hạn
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiResponse"
+    Forbidden:
+      description: Không có quyền với tài nguyên của người khác (AC-13)
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiResponse"
+    NotFound:
+      description: Không tìm thấy
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiResponse"
+    ValidationError:
+      description: Dữ liệu không hợp lệ, `error.details.fields` liệt kê lỗi từng trường
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiResponse"
+
+  schemas:
+    ApiResponse:
+      type: object
+      required: [success]
+      properties:
+        success:
+          type: boolean
+        data: {}
+        error:
+          $ref: "#/components/schemas/ApiError"
+    ApiError:
+      type: object
+      required: [code, message, timestamp]
+      properties:
+        code:
+          type: string
+          enum: [VALIDATION_ERROR, UNAUTHORIZED, FORBIDDEN, NOT_FOUND, CONFLICT, NOT_IMPLEMENTED, INTERNAL_ERROR]
+        message:
+          type: string
+        details:
+          type: object
+          additionalProperties: true
+        timestamp:
+          type: string
+          format: date-time
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [UP]
+        service:
+          type: string
+        authMode:
+          type: string
+          enum: [firebase, dev]
+        timestamp:
+          type: string
+          format: date-time
+    PageMeta:
+      type: object
+      required: [page, size, totalItems, totalPages, hasNext]
+      properties:
+        page:
+          type: integer
+        size:
+          type: integer
+        totalItems:
+          type: integer
+          format: int64
+        totalPages:
+          type: integer
+        hasNext:
+          type: boolean
+
+    User:
+      type: object
+      required: [id, email, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        displayName:
+          type: string
+          nullable: true
+          maxLength: 120
+        birthDate:
+          type: string
+          format: date
+          nullable: true
+        heightCm:
+          type: number
+          nullable: true
+          minimum: 50
+          maximum: 260
+        weightKg:
+          type: number
+          nullable: true
+          minimum: 20
+          maximum: 400
+        gender:
+          type: string
+          nullable: true
+          enum: [male, female, other, prefer_not_to_say, null]
+        fitnessLevel:
+          type: string
+          nullable: true
+          enum: [beginner, intermediate, advanced, null]
+        avatarUrl:
+          type: string
+          nullable: true
+        bmi:
+          type: number
+          readOnly: true
+        createdAt:
+          type: string
+          format: date-time
+    UserUpdateRequest:
+      type: object
+      properties:
+        displayName:
+          type: string
+          maxLength: 120
+        birthDate:
+          type: string
+          format: date
+        heightCm:
+          type: number
+          minimum: 50
+          maximum: 260
+        weightKg:
+          type: number
+          minimum: 20
+          maximum: 400
+        gender:
+          type: string
+          enum: [male, female, other, prefer_not_to_say]
+        fitnessLevel:
+          type: string
+          enum: [beginner, intermediate, advanced]
+
+    DailyActivity:
+      type: object
+      required: [activityDate, timezoneId, steps, distanceM, calories, activeMinutes, updatedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        activityDate:
+          type: string
+          format: date
+        timezoneId:
+          type: string
+          example: Asia/Ho_Chi_Minh
+        steps:
+          type: integer
+          minimum: 0
+        distanceM:
+          type: number
+          minimum: 0
+        calories:
+          type: number
+          minimum: 0
+        activeMinutes:
+          type: integer
+          minimum: 0
+        updatedAt:
+          type: string
+          format: date-time
+    DailyActivityPage:
+      allOf:
+        - $ref: "#/components/schemas/PageMeta"
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: "#/components/schemas/DailyActivity"
+    DailyActivityUpsert:
+      type: object
+      required: [activityDate, timezoneId, steps, distanceM, calories, activeMinutes, updatedAt]
+      properties:
+        activityDate:
+          type: string
+          format: date
+        timezoneId:
+          type: string
+        steps:
+          type: integer
+          minimum: 0
+        distanceM:
+          type: number
+          minimum: 0
+        calories:
+          type: number
+          minimum: 0
+        activeMinutes:
+          type: integer
+          minimum: 0
+        updatedAt:
+          type: string
+          format: date-time
+
+    ExerciseType:
+      type: string
+      enum: [WALKING, RUNNING, CYCLING]
+    ExerciseStatus:
+      type: string
+      enum: [ACTIVE, PAUSED, FINISHED, DISCARDED]
+    GpsPoint:
+      type: object
+      required: [seq, latitude, longitude, recordedAt]
+      properties:
+        seq:
+          type: integer
+          minimum: 0
+        latitude:
+          type: number
+          minimum: -90
+          maximum: 90
+        longitude:
+          type: number
+          minimum: -180
+          maximum: 180
+        altitudeM:
+          type: number
+          nullable: true
+        speedMps:
+          type: number
+          nullable: true
+        accuracyM:
+          type: number
+          nullable: true
+        recordedAt:
+          type: string
+          format: date-time
+    ExerciseMetrics:
+      type: object
+      properties:
+        distanceM:
+          type: number
+          minimum: 0
+        durationSeconds:
+          type: integer
+          minimum: 0
+        avgPaceSecPerKm:
+          type: number
+          nullable: true
+        avgSpeedMps:
+          type: number
+          nullable: true
+        calories:
+          type: number
+          minimum: 0
+    ExerciseCreateRequest:
+      type: object
+      required: [id, type, status, startedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: UUID do client sinh — chống tạo trùng
+        type:
+          $ref: "#/components/schemas/ExerciseType"
+        status:
+          $ref: "#/components/schemas/ExerciseStatus"
+        startedAt:
+          type: string
+          format: date-time
+        endedAt:
+          type: string
+          format: date-time
+          nullable: true
+        pausedSeconds:
+          type: integer
+          minimum: 0
+        gpsPoints:
+          type: array
+          maxItems: 10000
+          items:
+            $ref: "#/components/schemas/GpsPoint"
+        metrics:
+          $ref: "#/components/schemas/ExerciseMetrics"
+    ExerciseUpdateRequest:
+      type: object
+      required: [status]
+      properties:
+        status:
+          $ref: "#/components/schemas/ExerciseStatus"
+        endedAt:
+          type: string
+          format: date-time
+          nullable: true
+        pausedSeconds:
+          type: integer
+          minimum: 0
+        gpsPoints:
+          type: array
+          description: Chỉ các điểm mới (seq tăng dần), để client gửi theo lô
+          items:
+            $ref: "#/components/schemas/GpsPoint"
+        metrics:
+          $ref: "#/components/schemas/ExerciseMetrics"
+    ExerciseSummary:
+      type: object
+      required: [id, type, status, startedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          $ref: "#/components/schemas/ExerciseType"
+        status:
+          $ref: "#/components/schemas/ExerciseStatus"
+        startedAt:
+          type: string
+          format: date-time
+        endedAt:
+          type: string
+          format: date-time
+          nullable: true
+        pausedSeconds:
+          type: integer
+        metrics:
+          $ref: "#/components/schemas/ExerciseMetrics"
+    ExerciseDetail:
+      allOf:
+        - $ref: "#/components/schemas/ExerciseSummary"
+        - type: object
+          properties:
+            gpsPoints:
+              type: array
+              items:
+                $ref: "#/components/schemas/GpsPoint"
+    ExercisePage:
+      allOf:
+        - $ref: "#/components/schemas/PageMeta"
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: "#/components/schemas/ExerciseSummary"
+
+    GoalType:
+      type: string
+      enum: [DAILY_STEPS, DAILY_DISTANCE, DAILY_CALORIES, WEEKLY_EXERCISE_DURATION, WEEKLY_EXERCISE_COUNT]
+    GoalUpsertRequest:
+      type: object
+      required: [type, targetValue]
+      properties:
+        type:
+          $ref: "#/components/schemas/GoalType"
+        targetValue:
+          type: number
+          exclusiveMinimum: 0
+        startsOn:
+          type: string
+          format: date
+        endsOn:
+          type: string
+          format: date
+          nullable: true
+        enabled:
+          type: boolean
+          default: true
+    Goal:
+      allOf:
+        - $ref: "#/components/schemas/GoalUpsertRequest"
+        - type: object
+          required: [id, createdAt]
+          properties:
+            id:
+              type: string
+              format: uuid
+            createdAt:
+              type: string
+              format: date-time
+            progress:
+              type: number
+              minimum: 0
+              maximum: 1
+              description: Tính ở client từ useTodayActivity; server trả khi có thể
+
+    PeriodAnalytics:
+      type: object
+      properties:
+        periodStart:
+          type: string
+          format: date
+        periodEnd:
+          type: string
+          format: date
+        totalSteps:
+          type: integer
+        averageStepsPerDay:
+          type: number
+        totalDistanceM:
+          type: number
+        totalActiveMinutes:
+          type: integer
+        totalExerciseCount:
+          type: integer
+        totalExerciseSeconds:
+          type: integer
+        bestDay:
+          type: string
+          format: date
+          nullable: true
+        goalCompletionRate:
+          type: number
+          minimum: 0
+          maximum: 1
+        previous:
+          $ref: "#/components/schemas/PeriodAnalytics"
+
+    SyncEntityType:
+      type: string
+      enum: [EXERCISE, DAILY_ACTIVITY]
+    SyncItem:
+      type: object
+      required: [entityType, clientId, payload]
+      properties:
+        entityType:
+          $ref: "#/components/schemas/SyncEntityType"
+        clientId:
+          type: string
+          description: Id sinh ở client (UUID hoặc `activity_date|timezoneId`)
+        clientUpdatedAt:
+          type: string
+          format: date-time
+        payload:
+          type: object
+          additionalProperties: true
+    SyncReconcileRequest:
+      type: object
+      required: [deviceId, items]
+      properties:
+        deviceId:
+          type: string
+          maxLength: 128
+        items:
+          type: array
+          maxItems: 500
+          items:
+            $ref: "#/components/schemas/SyncItem"
+    SyncItemResult:
+      type: object
+      required: [entityType, clientId, status]
+      properties:
+        entityType:
+          $ref: "#/components/schemas/SyncEntityType"
+        clientId:
+          type: string
+        status:
+          type: string
+          enum: [CREATED, DUPLICATE, CONFLICT, REJECTED]
+        reason:
+          type: string
+          nullable: true
+        serverVersion:
+          type: object
+          nullable: true
+          additionalProperties: true
+    SyncReconcileResponse:
+      type: object
+      properties:
+        results:
+          type: array
+          items:
+            $ref: "#/components/schemas/SyncItemResult"
+        serverTime:
+          type: string
+          format: date-time
+
+    NotificationSettings:
+      type: object
+      properties:
+        goalAchieved:
+          type: boolean
+          default: true
+        weeklyReport:
+          type: boolean
+          default: true
+        inactivityReminder:
+          type: boolean
+          default: true
+        quietHoursStart:
+          type: string
+          description: "HH:mm theo giờ địa phương"
+          example: "22:00"
+        quietHoursEnd:
+          type: string
+          example: "07:00"
