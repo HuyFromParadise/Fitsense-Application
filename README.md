@@ -29,7 +29,7 @@ FitSense/
 | Kotlin / KSP | 2.2.0 / 2.2.0-2.0.2 | Room compiler qua KSP |
 | Android | compileSdk 37, targetSdk 36, minSdk 24 | AGP theo RN template |
 | MySQL | 8.4 | container, port host `3307` |
-| Package Android | `com.fitsense`, applicationId `com.fitsense` | |
+| Package Android | `com.fitsensemobile`, applicationId `com.fitsensemobile` | |
 
 ## Backend
 

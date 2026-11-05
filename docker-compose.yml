@@ -32,8 +32,10 @@ services:
       retries: 10
 
   backend:
+    profiles: ["full"]
+
     build:
-      context: ./fitsense-backend
+      context: ./FitSenseBackend
 
     container_name: fitsense-backend
 
@@ -43,6 +45,8 @@ services:
       - .env
 
     environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-prod}
+      FITSENSE_AUTH_MODE: ${FITSENSE_AUTH_MODE:-firebase}
       DB_URL: jdbc:mysql://mysql:3306/fitsense_db?serverTimezone=UTC
       FIREBASE_SERVICE_ACCOUNT_PATH: /run/secrets/firebase-service-account.json
 

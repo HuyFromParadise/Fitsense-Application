@@ -36,7 +36,7 @@ FitSense/
 - [ ] Firebase: bật Email/Password và Google Sign-In, tạo Firestore, thêm app Android (SHA-1 của **cả hai máy**, vì mỗi người có debug keystore riêng), tải `google-services.json`, tạo service account cho backend (không commit file này).
 - [ ] Google Maps API key (Maps SDK for Android), giới hạn package name và SHA-1.
 - [ ] `.gitignore` chặn: `google-services.json` bản thật nếu chứa key riêng, service account JSON, `.env`, keystore.
-- [ ] Thống nhất tên package Android: `com.fitsensemobile`, và tên applicationId.
+- [ ] Thống nhất package Android và applicationId: `com.fitsensemobile` (mã nguồn native đặt tại `android/app/src/main/java/com/fitsensemobile/`).
 
 ### 3.3 Bốn giao ước cần chốt
 
@@ -66,7 +66,7 @@ FitSense/
 - [ ] Cấu trúc package **theo feature** (đúng đặc tả):
 
 ```
-com.fitsense
+com.example.fitsense
 ├── auth/            (Firebase filter, SecurityConfig)
 ├── user/            controller, service, repository, entity, dto
 ├── activity/
@@ -129,7 +129,7 @@ src/
 - [ ] **Khung native (Android, Kotlin):**
 
 ```
-android/app/src/main/java/com/fitsense/
+android/app/src/main/java/com/fitsensemobile/
 ├── FitSensePackage.kt        (đăng ký TẤT CẢ module ngay từ đầu)
 ├── common/                   (EventEmitter helper, PermissionHelper, TimeUtils)
 ├── database/                 (FitSenseDatabase với TẤT CẢ entity + DAO rỗng, LocalDbModule)
