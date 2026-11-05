@@ -26,7 +26,7 @@
 - [ ] Cấu trúc package **theo feature** (đúng đặc tả):
 
 ```
-com.fitsense
+com.example.fitsense
 ├── auth/            (Firebase filter, SecurityConfig)
 ├── user/            controller, service, repository, entity, dto
 ├── activity/
@@ -89,7 +89,7 @@ src/
 - [ ] **Khung native (Android, Kotlin):**
 
 ```
-android/app/src/main/java/com/fitsense/
+android/app/src/main/java/com/fitsensemobile/
 ├── FitSensePackage.kt        (đăng ký TẤT CẢ module ngay từ đầu)
 ├── common/                   (EventEmitter helper, PermissionHelper, TimeUtils)
 ├── database/                 (FitSenseDatabase với TẤT CẢ entity + DAO rỗng, LocalDbModule)

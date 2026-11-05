@@ -4,7 +4,7 @@ Cập nhật file này khi đổi **hợp đồng dữ liệu** hoặc đổi ng
 
 ## Phân chia feature
 
-| # | Feature | Người | Backend (`com.fitsense.*`) | Mobile (`src/features/*`) | Native (`android/.../com/fitsense/*`) |
+| # | Feature | Người | Backend (`com.example.fitsense.*`) | Mobile (`src/features/*`) | Native (`android/app/src/main/java/com/fitsensemobile/*`) |
 |---|---|---|---|---|---|
 | F1 | Auth + Profile (+ xóa tài khoản) | A | `auth`, `user` | `auth`, `profile` | — |
 | F2 | GPS Exercise | A | `exercise` | `exercise` | `location` |
@@ -16,14 +16,24 @@ Cập nhật file này khi đổi **hợp đồng dữ liệu** hoặc đổi ng
 | F8 | Offline Sync | B | `sync` | `sync`, `services/sync` | `sync` |
 | F9 | Local notification + pin | B | — | `notifications` | `notification` |
 
+## Quy ước package (không đổi nếu chưa báo người kia)
+
+| Thành phần | Package gốc | Thư mục nguồn |
+|---|---|---|
+| Backend (Java) | `com.example.fitsense` | `FitSenseBackend/src/main/java/com/example/fitsense/` |
+| Android native (Kotlin) | `com.fitsensemobile` | `FitSenseMobile/android/app/src/main/java/com/fitsensemobile/` |
+| `namespace` / `applicationId` Android | `com.fitsensemobile` | `FitSenseMobile/android/app/build.gradle` |
+
+Không dùng `com.fitsense` cho backend hay Android.
+
 ## File nóng — ai được sửa
 
 | File | Chủ | Quy tắc |
 |---|---|---|
 | `FitSenseMobile/package.json`, `android/build.gradle`, `android/app/build.gradle`, `FitSenseBackend/pom.xml` | cả hai | đã cài đủ ngày 1; thêm mới thì báo trước, một người sửa, merge ngay |
 | `android/app/src/main/AndroidManifest.xml` | B | đã khai báo đủ quyền/service/receiver ngày 1 |
-| `android/.../FitSensePackage.kt` | B | đăng ký đủ module ngày 1 |
-| `android/.../database/*` (Room) | B | đủ 6 bảng; đổi cột thì tăng version + migration, báo A |
+| `android/app/src/main/java/com/fitsensemobile/FitSensePackage.kt` | B | đăng ký đủ module ngày 1 |
+| `android/app/src/main/java/com/fitsensemobile/database/*` (Room) | B | đủ 6 bảng; đổi cột thì tăng version + migration, báo A |
 | `FitSenseBackend/.../db/migration/V1__init.sql` | chung | **không sửa**; thay đổi thì `V2__...` của chủ feature |
 | `auth/SecurityConfig.java`, `auth/FirebaseFilter.java` | A (F1) | người khác cần đổi route công khai thì nhờ A |
 | `src/app/navigation/*` | B | route khai báo sẵn; feature chỉ thay nội dung màn hình |

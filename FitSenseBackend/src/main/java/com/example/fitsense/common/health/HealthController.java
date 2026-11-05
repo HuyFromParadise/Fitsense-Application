@@ -1,16 +1,13 @@
 package com.example.fitsense.common.health;
 
-//import com.fitsense.auth.AuthProperties;
+import com.example.fitsense.auth.AuthMode;
 import com.example.fitsense.common.response.ApiResponse;
-//import com.fitsense.common.security.AuthenticatedUser;
-//import com.fitsense.common.security.CurrentUser;
+import com.example.fitsense.common.security.AuthenticatedUser;
+import com.example.fitsense.common.security.CurrentUser;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
-
-import com.example.fitsense.common.security.CurrentUser;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -20,30 +17,29 @@ import org.springframework.web.bind.annotation.RestController;
 public class HealthController {
 
     private final Clock clock;
-//    private final AuthProperties authProperties;
+    private final AuthMode authMode;
 
-    public HealthController(Clock clock) {
+    public HealthController(Clock clock, AuthMode authMode) {
         this.clock = clock;
+        this.authMode = authMode;
     }
 
     @GetMapping("/health")
     public ApiResponse<Map<String, String>> health() {
-
-        return ApiResponse.ok(Map.of("status", "UP"));
+        Map<String, String> body = new LinkedHashMap<>();
+        body.put("status", "UP");
+        body.put("authMode", authMode.externalName());
+        return ApiResponse.ok(body);
     }
 
     @GetMapping("/ping-auth")
-    public ApiResponse<Map<String, String>> pingAuth(
-            @AuthenticationPrincipal CurrentUser currentUser
-    ) {
-
-        return ApiResponse.ok(
-                Map.of(
-                        "uid", currentUser.uid(),
-                        "email", currentUser.email() == null
-                                ? ""
-                                : currentUser.email()
-                )
-        );
+    public ApiResponse<Map<String, Object>> pingAuth(@AuthenticatedUser CurrentUser currentUser) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("message", "Authenticated");
+        body.put("firebaseUid", currentUser.uid());
+        // F1 replaces this with the MySQL user id once the users table is wired up.
+        body.put("userId", currentUser.uid());
+        body.put("timestamp", Instant.now(clock));
+        return ApiResponse.ok(body);
     }
 }
