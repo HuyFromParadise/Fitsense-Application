@@ -1,29 +1,43 @@
-# Secrets: never commit
+
+# Environment
 .env
 .env.*
 !.env.example
-google-services.json
-!**/google-services.json.example
-*service-account*.json
-*firebase-adminsdk*.json
-*.keystore
+
+# Java
+*.class
+target/
+.mvn/wrapper/maven-wrapper.jar
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-error.log*
+
+# React Native
+.expo/
+.metro-health-check*
+android/.gradle/
+android/app/build/
+android/build/
+ios/build/
+
+# Android secrets
+**/google-services.json
 *.jks
-!**/debug.keystore
+*.keystore
 local.properties
 
-# Editor / OS
+# Firebase
+service-account*.json
+*-service-account.json
+
+# IDE
 .idea/
 .vscode/
 *.iml
+
+# OS
 .DS_Store
 Thumbs.db
-
-# Build output
-target/
-build/
-node_modules/
-*.log
-fitsense-documentation
-
-application*.properties
 .codegraph/

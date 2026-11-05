@@ -1,4 +1,4 @@
-package com.example.fitsense.auth.config;
+package com.example.fitsense.config;
 
 import com.example.fitsense.auth.filter.FirebaseAuthenticationFilter;
 import jakarta.servlet.http.HttpServletResponse;
