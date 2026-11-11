@@ -15,7 +15,7 @@ This folder splits the original FitSense Day 1 and feature-based work plan into 
 
 ## Team ownership
 
-- **Member A:** F1 Auth + Profile, F2 GPS Exercise, F3 Analytics, F4 FCM server notifications.
+- **Member A:** F1 Auth + Profile, F2 GPS Exercise, F3 Analytics, F4 FCM server notifications. (See detailed execution plan: `DEV_A_IMPLEMENTATION_PLAN.md`)
 - **Member B:** F5 Steps + Dashboard, F6 Sensor Monitor, F7 Goals, F8 Offline Sync, F9 Local Notifications + power optimization.
 
 ## Source fidelity

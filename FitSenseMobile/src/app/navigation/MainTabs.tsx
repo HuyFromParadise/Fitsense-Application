@@ -4,6 +4,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { MainTabParamList } from './types';
 import { ProfileScreen } from '../../features/profile';
 import { ExerciseNavigator } from '../../features/exercise';
+import { AnalyticsScreen } from '../../features/analytics';
 import { TabPlaceholderScreen } from '../../components/common/TabPlaceholderScreen';
 import { colors } from '../../theme';
 
@@ -15,15 +16,6 @@ const DashboardPlaceholder = () => (
     subtitle="Theo dõi số bước hôm nay, lượng calo, quãng đường và thời gian vận động tích cực."
     icon="👟"
     owner="B"
-  />
-);
-
-const AnalyticsPlaceholder = () => (
-  <TabPlaceholderScreen
-    title="Thống kê & Phân tích"
-    subtitle="Biểu đồ bước chân, quãng đường và calo theo tuần/tháng."
-    icon="📊"
-    owner="A"
   />
 );
 
@@ -74,7 +66,7 @@ export const MainTabs: React.FC = () => {
       />
       <Tab.Screen
         name="Analytics"
-        component={AnalyticsPlaceholder}
+        component={AnalyticsScreen}
         options={{
           title: 'Thống kê',
           tabBarIcon: () => <Text style={{ fontSize: 20 }}>📊</Text>,

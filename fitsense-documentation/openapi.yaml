@@ -987,6 +987,8 @@ components:
           type: number
         totalDistanceM:
           type: number
+        totalCalories:
+          type: number
         totalActiveMinutes:
           type: integer
         totalExerciseCount:
@@ -1003,6 +1005,24 @@ components:
           maximum: 1
         previous:
           $ref: "#/components/schemas/PeriodAnalytics"
+        dailyBreakdown:
+          type: array
+          items:
+            type: object
+            properties:
+              date:
+                type: string
+                format: date
+              steps:
+                type: integer
+              distanceM:
+                type: number
+              calories:
+                type: number
+              activeMinutes:
+                type: integer
+              exerciseCount:
+                type: integer
 
     SyncEntityType:
       type: string
