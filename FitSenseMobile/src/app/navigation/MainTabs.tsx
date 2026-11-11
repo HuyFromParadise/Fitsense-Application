@@ -3,6 +3,7 @@ import { Text } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { MainTabParamList } from './types';
 import { ProfileScreen } from '../../features/profile';
+import { ExerciseNavigator } from '../../features/exercise';
 import { TabPlaceholderScreen } from '../../components/common/TabPlaceholderScreen';
 import { colors } from '../../theme';
 
@@ -14,15 +15,6 @@ const DashboardPlaceholder = () => (
     subtitle="Theo dõi số bước hôm nay, lượng calo, quãng đường và thời gian vận động tích cực."
     icon="👟"
     owner="B"
-  />
-);
-
-const ExercisePlaceholder = () => (
-  <TabPlaceholderScreen
-    title="Luyện tập GPS"
-    subtitle="Theo dõi lộ trình chạy bộ, đi bộ, đạp xe theo thời gian thực."
-    icon="🏃"
-    owner="A"
   />
 );
 
@@ -73,9 +65,10 @@ export const MainTabs: React.FC = () => {
       />
       <Tab.Screen
         name="Exercise"
-        component={ExercisePlaceholder}
+        component={ExerciseNavigator}
         options={{
           title: 'Bài tập',
+          headerShown: false,
           tabBarIcon: () => <Text style={{ fontSize: 20 }}>🏃</Text>,
         }}
       />
