@@ -1,0 +1,16 @@
+rules_version = '2';
+
+// FitSense Firestore Security Rules (Owner: Developer A)
+// Clients can read their own profile and goals; only Backend Firebase Admin SDK may write.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{userId}/{document=**} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow write: if false;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
