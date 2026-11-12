@@ -1,63 +1,35 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import { colors, spacing, typography } from '../../theme';
-import { Button } from './Button';
+import { StyleSheet, Text, View } from 'react-native';
 
-interface EmptyStateProps {
-  title: string;
-  description?: string;
-  actionText?: string;
-  onAction?: () => void;
-  icon?: string;
-}
+import { useTheme } from '../../app/providers/ThemeProvider';
 
-export const EmptyState: React.FC<EmptyStateProps> = ({
+export function EmptyState({
   title,
-  description,
-  actionText,
-  onAction,
-  icon = '📭',
-}) => {
+  message,
+}: {
+  title: string;
+  message?: string;
+}) {
+  const { colors, spacing, typography } = useTheme();
+
   return (
-    <View style={styles.container}>
-      <Text style={styles.icon}>{icon}</Text>
-      <Text style={[typography.h3, styles.title]}>{title}</Text>
-      {description ? (
-        <Text style={[typography.body, styles.description]}>{description}</Text>
-      ) : null}
-      {actionText && onAction ? (
-        <Button
-          title={actionText}
-          onPress={onAction}
-          style={styles.button}
-          variant="secondary"
-        />
+    <View style={[styles.center, { gap: spacing.sm, padding: spacing.lg }]}>
+      <Text style={[typography.heading, { color: colors.text }]}>{title}</Text>
+      {message ? (
+        <Text style={[typography.body, styles.textCenter, { color: colors.textMuted }]}>
+          {message}
+        </Text>
       ) : null}
     </View>
   );
-};
+}
 
 const styles = StyleSheet.create({
-  container: {
-    padding: spacing.xl,
+  center: {
     alignItems: 'center',
     justifyContent: 'center',
   },
-  icon: {
-    fontSize: 48,
-    marginBottom: spacing.md,
-  },
-  title: {
-    color: colors.text,
+  textCenter: {
     textAlign: 'center',
-    marginBottom: spacing.xs,
-  },
-  description: {
-    color: colors.textSecondary,
-    textAlign: 'center',
-    marginBottom: spacing.lg,
-  },
-  button: {
-    marginTop: spacing.sm,
   },
 });

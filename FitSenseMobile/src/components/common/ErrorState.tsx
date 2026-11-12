@@ -1,54 +1,37 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import { colors, spacing, typography } from '../../theme';
+import { StyleSheet, Text, View } from 'react-native';
+
+import { useTheme } from '../../app/providers/ThemeProvider';
 import { Button } from './Button';
 
-interface ErrorStateProps {
-  message?: string;
-  onRetry?: () => void;
-}
-
-export const ErrorState: React.FC<ErrorStateProps> = ({
-  message = 'Đã có lỗi xảy ra. Vui lòng thử lại.',
+export function ErrorState({
+  message,
   onRetry,
-}) => {
+}: {
+  message: string;
+  onRetry?: () => void;
+}) {
+  const { colors, spacing, typography } = useTheme();
+
   return (
-    <View style={styles.container}>
-      <Text style={styles.icon}>⚠️</Text>
-      <Text style={[typography.h3, styles.title]}>Có lỗi xảy ra</Text>
-      <Text style={[typography.body, styles.message]}>{message}</Text>
-      {onRetry ? (
-        <Button
-          title="Thử lại"
-          onPress={onRetry}
-          variant="outline"
-          style={styles.button}
-        />
-      ) : null}
+    <View style={[styles.center, { gap: spacing.md, padding: spacing.lg }]}>
+      <Text style={[typography.heading, { color: colors.danger }]}>
+        Đã xảy ra lỗi
+      </Text>
+      <Text style={[typography.body, styles.textCenter, { color: colors.textMuted }]}>
+        {message}
+      </Text>
+      {onRetry ? <Button title="Thử lại" variant="secondary" onPress={onRetry} /> : null}
     </View>
   );
-};
+}
 
 const styles = StyleSheet.create({
-  container: {
-    padding: spacing.xl,
+  center: {
     alignItems: 'center',
     justifyContent: 'center',
   },
-  icon: {
-    fontSize: 48,
-    marginBottom: spacing.md,
-  },
-  title: {
-    color: colors.error,
-    marginBottom: spacing.xs,
-  },
-  message: {
-    color: colors.textSecondary,
+  textCenter: {
     textAlign: 'center',
-    marginBottom: spacing.lg,
-  },
-  button: {
-    minWidth: 120,
   },
 });

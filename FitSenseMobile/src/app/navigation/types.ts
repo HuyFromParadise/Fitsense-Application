@@ -1,9 +1,13 @@
-import { NavigatorScreenParams } from '@react-navigation/native';
+export type RootStackParamList = {
+  Auth: undefined;
+  Main: undefined;
+  SensorMonitor: undefined;
+};
 
 export type AuthStackParamList = {
   Login: undefined;
   Register: undefined;
-  ForgotPassword: undefined;
+  ResetPassword: undefined;
 };
 
 export type MainTabParamList = {
@@ -12,9 +16,4 @@ export type MainTabParamList = {
   Analytics: undefined;
   Goals: undefined;
   Profile: undefined;
-};
-
-export type RootStackParamList = {
-  Auth: NavigatorScreenParams<AuthStackParamList>;
-  Main: NavigatorScreenParams<MainTabParamList>;
 };
