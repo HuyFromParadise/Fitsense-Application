@@ -23,11 +23,5 @@ apiClient.interceptors.request.use(async (config: InternalAxiosRequestConfig) =>
 
 apiClient.interceptors.response.use(
   response => response,
-  async error => {
-    if (error.response?.status === 401 && getAuth().currentUser) {
-      // Expired/invalid session: drop it so the auth guard returns to Login.
-      await getAuth().signOut();
-    }
-    return Promise.reject(toApiError(error));
-  },
+  error => Promise.reject(toApiError(error)),
 );

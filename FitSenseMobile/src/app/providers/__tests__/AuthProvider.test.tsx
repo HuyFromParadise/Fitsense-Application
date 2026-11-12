@@ -5,8 +5,12 @@ import { useAuthStore } from '../../../stores/useAuthStore';
 import { AuthProvider } from '../AuthProvider';
 
 jest.mock('@react-native-firebase/auth');
+jest.mock('../../../features/profile/profileApi');
 
 const authMock = jest.requireMock('@react-native-firebase/auth') as any;
+const profileMock = jest.requireMock(
+  '../../../features/profile/profileApi',
+) as any;
 
 function renderProvider() {
   return ReactTestRenderer.create(
@@ -44,6 +48,9 @@ test('hydrates the store from the persisted Firebase user', async () => {
     initializing: false,
     user: { uid: 'uid-1', email: 'a@fitsense.app', displayName: 'An' },
   });
+  expect(profileMock.syncProfileToBackend).toHaveBeenCalledWith(
+    expect.objectContaining({ uid: 'uid-1' }),
+  );
 });
 
 test('finishes initializing with no session when Firebase has no user', async () => {

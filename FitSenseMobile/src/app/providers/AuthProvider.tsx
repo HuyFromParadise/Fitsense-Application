@@ -1,6 +1,7 @@
 import { getAuth, onAuthStateChanged } from '@react-native-firebase/auth';
 import React, { useEffect } from 'react';
 
+import { syncProfileToBackend } from '../../features/profile/profileApi';
 import { useAuthStore } from '../../stores/useAuthStore';
 
 /**
@@ -22,6 +23,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           email: user.email,
           displayName: user.displayName,
         });
+        // Firebase login does not touch MySQL; the backend creates/updates the
+        // row on the first authenticated /api/users/me request.
+        void syncProfileToBackend(user);
       }),
     [],
   );
