@@ -7,6 +7,7 @@ import {
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import React, { useMemo } from 'react';
 
+import { Loading } from '../../components/common';
 import { SensorMonitorScreen } from '../../features/sensors/screens/SensorMonitorScreen';
 import { useAuthStore } from '../../stores/useAuthStore';
 import { useTheme } from '../providers/ThemeProvider';
@@ -18,6 +19,7 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export function RootNavigator() {
   const isAuthenticated = useAuthStore(state => state.isAuthenticated);
+  const initializing = useAuthStore(state => state.initializing);
   const theme = useTheme();
 
   const navigationTheme: NavigationTheme = useMemo(() => {
@@ -35,6 +37,10 @@ export function RootNavigator() {
       },
     };
   }, [theme]);
+
+  if (initializing) {
+    return <Loading message="Đang kiểm tra đăng nhập..." />;
+  }
 
   return (
     <NavigationContainer theme={navigationTheme}>

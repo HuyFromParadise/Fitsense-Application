@@ -1,3 +1,4 @@
+import { getAuth } from '@react-native-firebase/auth';
 import axios, { type InternalAxiosRequestConfig } from 'axios';
 
 import { useAuthStore } from '../../stores/useAuthStore';
@@ -10,9 +11,10 @@ export const apiClient = axios.create({
   headers: { 'Content-Type': 'application/json' },
 });
 
-// Khung: F1 (A) đổ token vào useAuthStore, mọi request tự có Bearer.
-apiClient.interceptors.request.use((config: InternalAxiosRequestConfig) => {
-  const token = useAuthStore.getState().token;
+// getIdToken() returns the cached token and refreshes it automatically when expired.
+apiClient.interceptors.request.use(async (config: InternalAxiosRequestConfig) => {
+  const token =
+    (await getAuth().currentUser?.getIdToken()) ?? useAuthStore.getState().token;
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
@@ -21,5 +23,11 @@ apiClient.interceptors.request.use((config: InternalAxiosRequestConfig) => {
 
 apiClient.interceptors.response.use(
   response => response,
-  error => Promise.reject(toApiError(error)),
+  async error => {
+    if (error.response?.status === 401 && getAuth().currentUser) {
+      // Expired/invalid session: drop it so the auth guard returns to Login.
+      await getAuth().signOut();
+    }
+    return Promise.reject(toApiError(error));
+  },
 );
