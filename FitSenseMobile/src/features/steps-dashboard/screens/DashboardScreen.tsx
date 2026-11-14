@@ -1,10 +1,10 @@
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
-import { useIsFocused, useNavigation } from '@react-navigation/native';
+import { useIsFocused, useNavigation, type NavigationProp } from '@react-navigation/native';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Linking, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 
-import type { MainTabParamList } from '../../../app/navigation/types';
+import type { MainTabParamList, RootStackParamList } from '../../../app/navigation/types';
 import { useTheme } from '../../../app/providers/ThemeProvider';
 import { Button, Card } from '../../../components/common';
 import { LocalDb, Exercise } from '../../../services/native';
@@ -68,6 +68,7 @@ function Stat({ label, value }: { label: string; value: string }) {
 export function DashboardScreen() {
   const { colors, spacing, typography } = useTheme();
   const navigation = useNavigation<BottomTabNavigationProp<MainTabParamList>>();
+  const rootNavigation = useNavigation<NavigationProp<RootStackParamList>>();
   const isFocused = useIsFocused();
 
   const { profile } = useProfile();
@@ -79,10 +80,12 @@ export function DashboardScreen() {
   const [activeSession, setActiveSession] = useState<ExerciseActiveSession | null>(null);
   useEffect(() => {
     if (!isFocused) return;
+    // Đọc lại số liệu đã lưu để không hiện 0 khi native chưa kịp trả snapshot.
+    refreshActivity().catch(() => {});
     Exercise.getActiveSession()
       .then(setActiveSession)
       .catch(() => setActiveSession(null));
-  }, [isFocused]);
+  }, [isFocused, refreshActivity]);
 
   const steps = snapshot?.stepsToday ?? activity.steps;
   const metrics = useMemo(() => dashboardMetrics(steps, profile), [steps, profile]);
@@ -223,6 +226,18 @@ export function DashboardScreen() {
           title={activeSession ? 'Xem buổi tập' : 'Bắt đầu tập luyện'}
           variant="secondary"
           onPress={() => navigation.navigate('Exercise')}
+        />
+      </Card>
+
+      <Card style={{ gap: spacing.sm }}>
+        <Text style={[typography.label, { color: colors.text }]}>Kiểm tra cảm biến</Text>
+        <Text style={[typography.caption, { color: colors.textMuted }]}>
+          Xem accelerometer/gyroscope, nhãn chuyển động và biểu đồ realtime.
+        </Text>
+        <Button
+          title="Mở Sensor Monitor"
+          variant="secondary"
+          onPress={() => rootNavigation.navigate('SensorMonitor')}
         />
       </Card>
     </ScrollView>
