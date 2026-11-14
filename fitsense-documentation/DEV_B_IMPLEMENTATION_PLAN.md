@@ -81,11 +81,11 @@ Danh sách dưới là **toàn bộ phần còn thiếu**, đối chiếu với 
 
 **F6 — Sensor Monitor (Ngày 6–7)**
 
-- [ ] Native `sensors/MotionSensorModule.kt`: thay stub bằng accelerometer + gyroscope (`SENSOR_DELAY_UI`, clamp ≥50ms, emit `MOTION_SAMPLE` / `MOTION_LABEL_CHANGED`, stop khi background).
-- [ ] Native `sensors/MovementClassifier.kt` + `sensors/SensorConfig.kt`: cửa sổ trượt ~2s, ngưỡng STILL/WALKING/RUNNING, chống nhấp nháy + unit test.
-- [ ] Native (tùy chọn) ghi `sensor_samples` khi bật sampling mode (mặc định tắt).
-- [ ] Mobile `useMotionSensor.ts`: start/stop, buffer ~50 mẫu, throttle render.
-- [ ] Mobile `SensorMonitorScreen.tsx`: thay placeholder bằng X/Y/Z realtime, steps, nhãn + confidence, LineChart, trạng thái `UNAVAILABLE`/`PERMISSION_DENIED`.
+- [x] Native `sensors/MotionSensorModule.kt`: thay stub bằng accelerometer + gyroscope (`SENSOR_DELAY_UI`, clamp ≥50ms, emit `MOTION_SAMPLE` / `MOTION_LABEL_CHANGED`, stop khi background).
+- [x] Native `sensors/MovementClassifier.kt` + `sensors/SensorConfig.kt`: cửa sổ trượt ~2s, ngưỡng STILL/WALKING/RUNNING, chống nhấp nháy + unit test.
+- [ ] Native (tùy chọn) ghi `sensor_samples` khi bật sampling mode (mặc định tắt). *(bỏ qua: thuộc danh sách cắt giảm mục 6)*
+- [x] Mobile `useMotionSensor.ts`: start/stop, buffer ~50 mẫu, throttle render.
+- [x] Mobile `SensorMonitorScreen.tsx`: thay placeholder bằng X/Y/Z realtime, steps, nhãn + confidence, LineChart, trạng thái `UNAVAILABLE`/`PERMISSION_DENIED`.
 
 **F7 — Goals (Ngày 5, 7)**
 
@@ -134,6 +134,8 @@ Danh sách dưới là **toàn bộ phần còn thiếu**, đối chiếu với 
 - `SyncQueueEntity` đã có unique index `(entity_type, client_id)` (đã xác nhận trong code) — không cần sửa schema khi viết `SyncManager`.
 - `native-interface.d.ts` là **bản chính**; đổi method/payload phải sửa file đó trước, commit riêng, báo A.
 - Giờ địa phương cho ngày (`yyyy-MM-dd`), epoch ms cho thời gian; gửi kèm `timezoneId` khi sync.
+- `react-native-gifted-charts` cần `react-native-linear-gradient` / `expo-linear-gradient` (chưa cài) → Sensor Monitor tự vẽ sparkline bằng `react-native-svg` để không thêm dependency và không vỡ Jest. A lưu ý: `features/analytics/AnalyticsScreen.tsx` import gifted-charts sẽ ném lỗi khi render nếu chưa cài gradient.
+- Máy không có gyroscope: `start('both')` reject `UNAVAILABLE`, hook tự fallback `start('accelerometer')` và UI hiện cảnh báo (không chặn toàn bộ màn hình); máy không có accelerometer → `UNAVAILABLE`.
 
 ---
 
@@ -295,33 +297,33 @@ Danh sách dưới là **toàn bộ phần còn thiếu**, đối chiếu với 
 
 #### Android Native (`com.fitsensemobile.sensors`)
 
-- [ ] `MotionSensorModule` thật:
+- [x] `MotionSensorModule` thật:
   - `start(sensors)`: `accelerometer` / `gyroscope` / `both`; dùng `SENSOR_DELAY_UI`.
   - `stop()`: unregister toàn bộ listener.
   - `getSnapshot()`: status, label, confidence, lastSample, updatedAtMs.
   - `setEmitInterval(ms)`: kẹp tối thiểu ~50ms (tối đa 20 Hz), mặc định ~100ms.
   - Emit `MOTION_SAMPLE` (x, y, z, magnitude, timestampMs) và `MOTION_LABEL_CHANGED` (label, confidence, timestampMs).
   - Hủy listener khi app ra background (`LifecycleEventListener` / `onHostPause`).
-- [ ] `MovementClassifier` (thuần Kotlin, test được):
+- [x] `MovementClassifier` (thuần Kotlin, test được):
   - Cửa sổ trượt ~2 giây trên `magnitude` của accelerometer.
   - Tính độ lệch chuẩn; ngưỡng đặt trong `SensorConfig.kt`: `STILL_MAX_STD`, `WALKING_MAX_STD`, `RUNNING_MIN_STD`.
   - Nhãn `STILL` / `WALKING` / `RUNNING` / `UNKNOWN`; confidence = hàm đơn giản từ khoảng cách tới ngưỡng (0..1).
   - Chống nhấp nháy: chỉ đổi nhãn sau N cửa sổ liên tiếp hoặc dùng hysteresis.
-- [ ] (Tùy chọn) Ghi `sensor_samples` khi bật sampling mode; mặc định tắt.
+- [ ] (Tùy chọn) Ghi `sensor_samples` khi bật sampling mode; mặc định tắt. *(bỏ qua)*
 
 #### Mobile (`src/features/sensors`)
 
-- [ ] `useMotionSensor` hook: start/stop theo mount, subscribe 2 event, giữ buffer ~50 mẫu.
-- [ ] `SensorMonitorScreen`:
+- [x] `useMotionSensor` hook: start/stop theo mount, subscribe 2 event, giữ buffer ~50 mẫu.
+- [x] `SensorMonitorScreen`:
   - X/Y/Z realtime (cập nhật ~10 Hz, tránh re-render quá nhiều — dùng state gộp hoặc throttle).
   - Số bước hiện tại (từ `useStepCounter`).
   - Nhãn chuyển động + confidence.
-  - Biểu đồ nhỏ (`react-native-gifted-charts` LineChart) trên buffer mẫu.
+  - Biểu đồ nhỏ (sparkline `react-native-svg`) trên buffer mẫu.
   - Trạng thái `UNAVAILABLE` / `PERMISSION_DENIED` rõ ràng (máy không có sensor).
 
 #### Test
 
-- [ ] Unit test `MovementClassifier`: chuỗi mẫu STILL/WALKING/RUNNING, nhiễu ngưỡng, cửa sổ chưa đủ mẫu.
+- [x] Unit test `MovementClassifier`: chuỗi mẫu STILL/WALKING/RUNNING, nhiễu ngưỡng, cửa sổ chưa đủ mẫu.
 
 #### Tiêu chí nghiệm thu ngày 6
 

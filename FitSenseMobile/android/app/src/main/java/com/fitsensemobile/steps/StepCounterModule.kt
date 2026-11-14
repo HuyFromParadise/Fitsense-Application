@@ -53,6 +53,7 @@ class StepCounterModule(private val context: ReactApplicationContext) :
     private var cached: StepSnapshotState? = null
     private var cacheLoaded = false
     private var permissionPromise: Promise? = null
+    private var lastPersistMs = 0L
 
     init {
         context.addActivityEventListener(this)
@@ -65,7 +66,13 @@ class StepCounterModule(private val context: ReactApplicationContext) :
             val counter = event.values[0].toLong()
             lastCounter = counter
             scope.launch {
+                val now = TimeUtils.nowMs()
                 val result = compute(counter)
+                // Ghi snapshot định kỳ để kill app/reboot không mất bước (AC-04).
+                if (now - lastPersistMs >= PERSIST_INTERVAL_MS) {
+                    lastPersistMs = now
+                    runCatching { store.persistState(result) }
+                }
                 EventEmitterHelper.emit(context, "STEP_UPDATE", result.today.toWritableMap(counter))
             }
         }
@@ -254,5 +261,6 @@ class StepCounterModule(private val context: ReactApplicationContext) :
         const val PERMISSION = Manifest.permission.ACTIVITY_RECOGNITION
         const val REQUEST_CODE = 5105
         const val KEY_ASKED = "activity_recognition_asked"
+        const val PERSIST_INTERVAL_MS = 5_000L
     }
 }

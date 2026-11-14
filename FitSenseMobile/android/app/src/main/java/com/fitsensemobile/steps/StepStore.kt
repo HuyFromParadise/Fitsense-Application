@@ -30,10 +30,9 @@ class StepStore(context: Context) {
         )
 
     suspend fun persist(result: StepBaselineResult) {
-        val rows = result.closedDays + result.today
-        db.stepSnapshotDao().upsertAll(rows.map { it.toEntity() })
+        persistState(result)
 
-        rows.forEach { row ->
+        (result.closedDays + result.today).forEach { row ->
             val distanceM = StepMetrics.distanceM(row.steps)
             db.localActivityDao().upsert(
                 LocalActivityEntity(
@@ -49,6 +48,15 @@ class StepStore(context: Context) {
                 ),
             )
         }
+    }
+
+    /**
+     * Chỉ ghi `step_snapshots` (baseline + steps) để app bị kill/reboot vẫn giữ số bước.
+     * Không đụng `local_activity` để không ghi đè distance/calories tính từ profile ở Dashboard.
+     */
+    suspend fun persistState(result: StepBaselineResult) {
+        val rows = result.closedDays + result.today
+        db.stepSnapshotDao().upsertAll(rows.map { it.toEntity() })
     }
 
     suspend fun history(fromDate: String, toDate: String): List<StepSnapshotState> =
