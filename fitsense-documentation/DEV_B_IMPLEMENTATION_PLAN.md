@@ -89,13 +89,13 @@ Danh sách dưới là **toàn bộ phần còn thiếu**, đối chiếu với 
 
 **F7 — Goals (Ngày 5, 7)**
 
-- [ ] Backend `goal`: thay `GoalPlaceholderController` bằng `GoalEntity` (bảng `goals` V2 đã có sẵn), `GoalRepository`, `GoalService`, `GoalController`; CRUD + validate + ownership 403/404; `GoalServiceTest`.
-- [ ] Backend (tùy chọn) mirror Firestore `users/{uid}/goals/{goalId}`; nếu bỏ qua thì ghi rõ trong tài liệu.
-- [ ] Mobile `goalsApi.ts`: list/create/update/delete qua `src/services/api/client.ts`.
-- [ ] Mobile `useGoals.ts`: TanStack Query + invalidate sau mutation.
-- [ ] Mobile `GoalsScreen.tsx`: thay placeholder bằng danh sách + progress bar + form tạo/sửa + xóa xác nhận + empty/error/loading.
-- [ ] Mobile: progress daily từ `useTodayActivity`; weekly từ `local_exercise` (chỉ đọc qua `LocalDb.getLocalExercises`, lặp trang nếu thiếu tuần; `LocalExerciseDao.countBetween` có sẵn nhưng chưa expose — nếu muốn thêm method vào `LocalDbModule` thì phải sửa `native-interface.d.ts` + báo A).
-- [ ] Mobile (tùy chọn): màn lịch sử goal đã đạt, derive từ `/api/activities/history` + goal hiện tại.
+- [x] Backend `goal`: thay `GoalPlaceholderController` bằng `GoalEntity` (bảng `goals` V2 đã có sẵn), `GoalRepository`, `GoalService`, `GoalController`; CRUD + validate + ownership 403/404; `GoalServiceTest`.
+- [x] Backend (tùy chọn) mirror Firestore `users/{uid}/goals/{goalId}`; nếu bỏ qua thì ghi rõ trong tài liệu. *(bỏ qua: goal chỉ lưu MySQL)*
+- [x] Mobile `goalsApi.ts`: list/create/update/delete qua `src/services/api/client.ts`.
+- [x] Mobile `useGoals.ts`: TanStack Query + invalidate sau mutation.
+- [x] Mobile `GoalsScreen.tsx`: thay placeholder bằng danh sách + progress bar + form tạo/sửa + xóa xác nhận + empty/error/loading.
+- [x] Mobile: progress daily từ `useTodayActivity`; weekly từ `local_exercise` (chỉ đọc qua `LocalDb.getLocalExercises`, lặp trang nếu thiếu tuần; `LocalExerciseDao.countBetween` có sẵn nhưng chưa expose — nếu muốn thêm method vào `LocalDbModule` thì phải sửa `native-interface.d.ts` + báo A).
+- [ ] Mobile (tùy chọn): màn lịch sử goal đã đạt, derive từ `/api/activities/history` + goal hiện tại. *(bỏ qua, tùy chọn)*
 
 **F8 — Offline Sync (Ngày 8–10, 12)**
 
@@ -263,27 +263,29 @@ Danh sách dưới là **toàn bộ phần còn thiếu**, đối chiếu với 
 
 #### Backend (`com.example.fitsense.goal`)
 
-- [ ] Thay `GoalPlaceholderController` bằng đầy đủ:
+- [x] Thay `GoalPlaceholderController` bằng đầy đủ:
   - `GoalEntity` map bảng `goals` (V2): `id` UUID, `user_id`, `goal_type`, `target_value`, `starts_on`, `ends_on`, `enabled`, `created_at`, `updated_at`.
   - `GoalRepository`, `GoalService`, `GoalController`.
   - `POST /api/goals` → 201 + `ApiResponse<Goal>`; `GET /api/goals` (enabled, mặc định active hôm nay); `PUT /api/goals/{id}`; `DELETE /api/goals/{id}` → 204.
   - Validate `targetValue > 0`, `endsOn >= startsOn`, enum khớp `GoalType` trong `openapi.yaml` (`DAILY_STEPS`, `DAILY_DISTANCE`, `DAILY_CALORIES`, `WEEKLY_EXERCISE_DURATION`, `WEEKLY_EXERCISE_COUNT`).
   - Kiểm tra quyền sở hữu: goal của user khác → 403; không tồn tại → 404.
-- [ ] (Tùy chọn, nếu kịp) Mirror Firestore `users/{uid}/goals/{goalId}` bằng Admin SDK; nếu không kịp thì ghi rõ trong tài liệu là chỉ MySQL (demo vẫn đạt AC-08).
-- [ ] Unit test `GoalServiceTest`: CRUD, validate, người khác sửa/xóa bị 403, tạo goal trùng không nhân đôi (nếu unique theo type+period — nếu không có unique thì không chặn).
+- [ ] (Tùy chọn, nếu kịp) Mirror Firestore `users/{uid}/goals/{goalId}` bằng Admin SDK; nếu không kịp thì ghi rõ trong tài liệu là chỉ MySQL (demo vẫn đạt AC-08). *(bỏ qua: goal chỉ lưu MySQL, không mirror Firestore)*
+- [x] Unit test `GoalServiceTest`: CRUD, validate, người khác sửa/xóa bị 403, tạo goal trùng không nhân đôi (nếu unique theo type+period — nếu không có unique thì không chặn).
 
 #### Mobile (`src/features/goals`)
 
-- [ ] `goalsApi.ts`: `listGoals`, `createGoal`, `updateGoal`, `deleteGoal` dùng `src/services/api/client.ts`.
-- [ ] `useGoals.ts` (TanStack Query): query list, mutation create/update/delete, invalidate sau mutation.
-- [ ] `GoalsScreen`:
+- [x] `goalsApi.ts`: `listGoals`, `createGoal`, `updateGoal`, `deleteGoal` dùng `src/services/api/client.ts`.
+- [x] `useGoals.ts` (TanStack Query): query list, mutation create/update/delete, invalidate sau mutation.
+- [x] `GoalsScreen`:
   - Danh sách goal + progress bar.
   - Progress nguồn:
     - `DAILY_STEPS` / `DAILY_DISTANCE` / `DAILY_CALORIES` → `useTodayActivity`.
     - `WEEKLY_EXERCISE_COUNT` / `WEEKLY_EXERCISE_DURATION` → đọc `local_exercise` (chỉ đọc) qua `LocalDb.getLocalExercises`, lọc các buổi `FINISHED` trong tuần; nếu phân trang chưa đủ tuần thì tăng limit hoặc lặp trang (không thêm method native nếu chưa báo A).
   - Form tạo/sửa (dùng form + Zod đã cài), xóa có xác nhận.
-  - Màn "Lịch sử goal đã đạt": derive từ `GET /api/activities/history` + goal hiện tại (tối giản, không cần bảng mới).
-- [ ] Empty/Error/Loading state dùng component chung.
+  - Màn "Lịch sử goal đã đạt": derive từ `GET /api/activities/history` + goal hiện tại (tối giản, không cần bảng mới). *(bỏ qua, tùy chọn)*
+- [x] Empty/Error/Loading state dùng component chung.
+
+> Quy ước đơn vị `targetValue`: `DAILY_STEPS` = bước, `DAILY_DISTANCE` = mét, `DAILY_CALORIES` = kcal, `WEEKLY_EXERCISE_DURATION` = phút, `WEEKLY_EXERCISE_COUNT` = số buổi. Goal chỉ lưu MySQL (không mirror Firestore).
 
 #### Tiêu chí nghiệm thu ngày 5
 
