@@ -3,7 +3,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { ExerciseTrackingScreen } from './ExerciseTrackingScreen';
 import { ExerciseHistoryScreen } from './ExerciseHistoryScreen';
 import { ExerciseDetailScreen } from './ExerciseDetailScreen';
-import { colors } from '../../theme';
+import { useTheme } from '../../app/providers/ThemeProvider';
 
 export type ExerciseStackParamList = {
   ExerciseTracking: undefined;
@@ -17,6 +17,8 @@ export type ExerciseStackParamList = {
 const Stack = createNativeStackNavigator<ExerciseStackParamList>();
 
 export const ExerciseNavigator: React.FC = () => {
+  const { colors } = useTheme();
+
   return (
     <Stack.Navigator
       screenOptions={{

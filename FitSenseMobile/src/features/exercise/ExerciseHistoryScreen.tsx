@@ -9,7 +9,7 @@ import {
   Alert,
 } from 'react-native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { colors, spacing, typography } from '../../theme';
+import { useTheme } from '../../app/providers/ThemeProvider';
 import { Card, EmptyState, Loading } from '../../components/common';
 import { exerciseApi } from './exerciseApi';
 import { exerciseNative } from './exerciseNative';
@@ -29,6 +29,7 @@ interface ExerciseHistoryScreenProps {
 export const ExerciseHistoryScreen: React.FC<ExerciseHistoryScreenProps> = ({
   navigation,
 }) => {
+  const { colors, spacing, radius, typography } = useTheme();
   const queryClient = useQueryClient();
   const [filterType, setFilterType] = useState<ExerciseType | undefined>(undefined);
   const [page, setPage] = useState(0);
@@ -136,21 +137,21 @@ export const ExerciseHistoryScreen: React.FC<ExerciseHistoryScreenProps> = ({
     }
   };
 
-  // Merge pending local workouts with remote paginated workouts (deduplicating by id)
-  const mergedItems: ExerciseSummary[] = React.useMemo(() => {
-    const remoteItems = remoteData?.items ?? [];
-    const seen = new Set(remoteItems.map((i) => i.id));
-    const unsyncedLocal = localList.filter((l) => !seen.has(l.id));
-    return [...unsyncedLocal, ...remoteItems];
-  }, [remoteData, localList]);
-
   const handleRefresh = async () => {
     await loadLocalSessions();
     await refetch();
   };
 
+  // Merge remote items with local-only pending items
+  const remoteItems = remoteData?.items || [];
+  const remoteIds = new Set(remoteItems.map((it) => it.id));
+  const localOnly = localList.filter((it) => !remoteIds.has(it.id));
+  const mergedItems = [...localOnly, ...remoteItems];
+
   const renderItem = ({ item }: { item: ExerciseSummary }) => {
     const meta = EXERCISE_TYPE_META[item.type];
+    const isPending = item.isLocalOnly || item.syncState === 'PENDING';
+
     return (
       <TouchableOpacity
         activeOpacity={0.8}
@@ -161,51 +162,55 @@ export const ExerciseHistoryScreen: React.FC<ExerciseHistoryScreenProps> = ({
           })
         }
       >
-        <Card style={styles.itemCard}>
-          <View style={styles.itemHeader}>
-            <View style={styles.typeBadge}>
+        <Card style={[styles.itemCard, { padding: spacing.md }]}>
+          <View style={[styles.itemHeader, { marginBottom: spacing.md }]}>
+            <View style={[styles.typeBadge, { gap: spacing.sm }]}>
               <Text style={styles.typeIcon}>{meta.icon}</Text>
               <View>
-                <Text style={[typography.bodyBold, { color: meta.color }]}>
+                <Text style={[typography.heading, { color: meta.color }]}>
                   {meta.label}
                 </Text>
-                <Text style={[typography.caption, styles.dateText]}>
+                <Text style={[typography.caption, { color: colors.textMuted, marginTop: 2 }]}>
                   {formatDateTime(item.startedAt)}
                 </Text>
               </View>
             </View>
-            {item.isLocalOnly && (
-              <View style={styles.pendingChip}>
-                <Text style={[typography.captionBold, styles.pendingText]}>
-                  Chờ đồng bộ
+
+            {isPending && (
+              <View style={[styles.pendingChip, { backgroundColor: colors.warning + '25', borderRadius: radius.pill }]}>
+                <Text style={[typography.caption, { color: colors.warning, fontWeight: '700' }]}>
+                  Chưa sync
                 </Text>
               </View>
             )}
           </View>
 
-          <View style={styles.statsRow}>
+          <View style={[styles.statsRow, { paddingTop: spacing.sm, borderColor: colors.border }]}>
             <View style={styles.statCol}>
-              <Text style={[typography.caption, styles.statLabel]}>Quãng đường</Text>
-              <Text style={[typography.bodyBold, styles.statVal]}>
+              <Text style={[typography.caption, { color: colors.textMuted, marginBottom: 2 }]}>Quãng đường</Text>
+              <Text style={[typography.label, { color: colors.text }]}>
                 {formatDistanceKm(item.metrics.distanceM)} km
               </Text>
             </View>
+
             <View style={styles.statCol}>
-              <Text style={[typography.caption, styles.statLabel]}>Thời gian</Text>
-              <Text style={[typography.bodyBold, styles.statVal]}>
+              <Text style={[typography.caption, { color: colors.textMuted, marginBottom: 2 }]}>Thời gian</Text>
+              <Text style={[typography.label, { color: colors.text }]}>
                 {formatDuration(item.metrics.durationSeconds)}
               </Text>
             </View>
+
             <View style={styles.statCol}>
-              <Text style={[typography.caption, styles.statLabel]}>Pace</Text>
-              <Text style={[typography.bodyBold, styles.statVal]}>
+              <Text style={[typography.caption, { color: colors.textMuted, marginBottom: 2 }]}>Pace</Text>
+              <Text style={[typography.label, { color: colors.text }]}>
                 {formatPace(item.metrics.avgPaceSecPerKm)}
               </Text>
             </View>
+
             <View style={styles.statCol}>
-              <Text style={[typography.caption, styles.statLabel]}>Calo</Text>
-              <Text style={[typography.bodyBold, styles.statVal]}>
-                {item.metrics.calories.toFixed(0)}
+              <Text style={[typography.caption, { color: colors.textMuted, marginBottom: 2 }]}>Calo</Text>
+              <Text style={[typography.label, { color: colors.text }]}>
+                {item.metrics.calories.toFixed(0)} kcal
               </Text>
             </View>
           </View>
@@ -215,56 +220,76 @@ export const ExerciseHistoryScreen: React.FC<ExerciseHistoryScreenProps> = ({
   };
 
   return (
-    <View style={styles.container}>
-      {/* Filter Pills */}
-      <View style={styles.filterRow}>
-        {[
-          { label: 'Tất cả', value: undefined },
-          { label: 'Đi bộ', value: 'WALKING' as ExerciseType },
-          { label: 'Chạy bộ', value: 'RUNNING' as ExerciseType },
-          { label: 'Đạp xe', value: 'CYCLING' as ExerciseType },
-        ].map((f) => {
-          const active = filterType === f.value;
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      {/* Exercise Type Filter Bar */}
+      <View style={[styles.filterRow, { backgroundColor: colors.surface, borderColor: colors.border, padding: spacing.md, gap: spacing.xs }]}>
+        <TouchableOpacity
+          style={[
+            styles.filterPill,
+            { backgroundColor: !filterType ? colors.primary : colors.surfaceAlt, borderRadius: radius.pill },
+          ]}
+          onPress={() => {
+            setFilterType(undefined);
+            setPage(0);
+          }}
+        >
+          <Text
+            style={[
+              typography.caption,
+              { color: !filterType ? colors.onPrimary : colors.textMuted, fontWeight: '700' },
+            ]}
+          >
+            Tất cả
+          </Text>
+        </TouchableOpacity>
+
+        {(['WALKING', 'RUNNING', 'CYCLING'] as ExerciseType[]).map((type) => {
+          const m = EXERCISE_TYPE_META[type];
+          const active = filterType === type;
           return (
             <TouchableOpacity
-              key={f.label}
-              style={[styles.filterPill, active && styles.filterPillActive]}
+              key={type}
+              style={[
+                styles.filterPill,
+                { backgroundColor: active ? colors.primary : colors.surfaceAlt, borderRadius: radius.pill },
+              ]}
               onPress={() => {
-                setFilterType(f.value);
+                setFilterType(type);
                 setPage(0);
               }}
             >
               <Text
                 style={[
-                  typography.captionBold,
-                  { color: active ? colors.white : colors.textSecondary },
+                  typography.caption,
+                  { color: active ? colors.onPrimary : colors.textMuted, fontWeight: '700' },
                 ]}
               >
-                {f.label}
+                {m.icon} {m.label}
               </Text>
             </TouchableOpacity>
           );
         })}
       </View>
 
-      {/* Offline / Pending Sync Banner */}
+      {/* Sync Pending Banner */}
       {pendingCount > 0 && (
         <TouchableOpacity
-          style={styles.syncBanner}
-          onPress={handleSyncPending}
+          style={[styles.syncBanner, { backgroundColor: colors.primary + '20', borderColor: colors.primary, padding: spacing.sm }]}
           disabled={syncing}
+          onPress={handleSyncPending}
         >
-          <Text style={[typography.captionBold, styles.syncBannerText]}>
+          <Text style={[typography.caption, { color: colors.primary, fontWeight: '700' }]}>
             {syncing
-              ? '⏳ Đang đồng bộ lên server...'
-              : `☁️ Có ${pendingCount} buổi tập offline chờ đồng bộ — Nhấn để đồng bộ ngay`}
+              ? '⏳ Đang đồng bộ dữ liệu lên cloud...'
+              : `☁️ Có ${pendingCount} buổi tập offline. Bấm để đồng bộ ngay!`}
           </Text>
         </TouchableOpacity>
       )}
 
+      {/* Offline Info Banner */}
       {isError && (
-        <View style={styles.offlineBanner}>
-          <Text style={[typography.caption, styles.offlineText]}>
+        <View style={[styles.offlineBanner, { backgroundColor: colors.warning + '20', paddingVertical: spacing.xs }]}>
+          <Text style={[typography.caption, { color: colors.warning }]}>
             📡 Đang hiển thị dữ liệu lưu cục bộ trên máy (Offline mode)
           </Text>
         </View>
@@ -277,7 +302,7 @@ export const ExerciseHistoryScreen: React.FC<ExerciseHistoryScreenProps> = ({
           data={mergedItems}
           keyExtractor={(item) => item.id}
           renderItem={renderItem}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={[styles.listContent, { padding: spacing.md, gap: spacing.md }]}
           refreshControl={
             <RefreshControl
               refreshing={isRefetching}
@@ -287,26 +312,27 @@ export const ExerciseHistoryScreen: React.FC<ExerciseHistoryScreenProps> = ({
           }
           ListEmptyComponent={
             <EmptyState
-              icon="👟"
               title="Chưa có buổi tập nào"
-              description="Hãy bắt đầu một buổi chạy bộ hoặc đi bộ để theo dõi lộ trình GPS của bạn!"
-              actionText="Bắt đầu ngay"
-              onAction={() => navigation.goBack()}
+              message="Hãy bắt đầu một buổi chạy bộ hoặc đi bộ để theo dõi lộ trình GPS của bạn!"
             />
           }
           ListFooterComponent={
             remoteData && (remoteData.hasNext || page > 0) ? (
-              <View style={styles.paginationRow}>
+              <View style={[styles.paginationRow, { paddingVertical: spacing.md }]}>
                 <TouchableOpacity
                   disabled={page === 0}
                   onPress={() => setPage((p) => Math.max(0, p - 1))}
-                  style={[styles.pageBtn, page === 0 && styles.pageBtnDisabled]}
+                  style={[
+                    styles.pageBtn,
+                    { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
+                    page === 0 && { opacity: 0.4 },
+                  ]}
                 >
-                  <Text style={[typography.captionBold, styles.pageBtnText]}>
+                  <Text style={[typography.caption, { color: colors.primary, fontWeight: '700' }]}>
                     ← Trang trước
                   </Text>
                 </TouchableOpacity>
-                <Text style={[typography.caption, styles.pageInfo]}>
+                <Text style={[typography.caption, { color: colors.textMuted }]}>
                   Trang {page + 1} / {Math.max(1, remoteData.totalPages)}
                 </Text>
                 <TouchableOpacity
@@ -314,15 +340,16 @@ export const ExerciseHistoryScreen: React.FC<ExerciseHistoryScreenProps> = ({
                   onPress={() => setPage((p) => p + 1)}
                   style={[
                     styles.pageBtn,
-                    !remoteData.hasNext && styles.pageBtnDisabled,
+                    { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
+                    !remoteData.hasNext && { opacity: 0.4 },
                   ]}
                 >
-                  <Text style={[typography.captionBold, styles.pageBtnText]}>
+                  <Text style={[typography.caption, { color: colors.primary, fontWeight: '700' }]}>
                     Trang sau →
                   </Text>
                 </TouchableOpacity>
               </View>
-            ) : null
+            ) : undefined
           }
         />
       )}
@@ -333,116 +360,55 @@ export const ExerciseHistoryScreen: React.FC<ExerciseHistoryScreenProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
   },
   filterRow: {
     flexDirection: 'row',
-    padding: spacing.md,
-    gap: spacing.xs,
-    backgroundColor: colors.surface,
     borderBottomWidth: 1,
-    borderColor: colors.border,
   },
   filterPill: {
     flex: 1,
-    paddingVertical: spacing.xs + 2,
-    borderRadius: 20,
-    backgroundColor: colors.surfaceLight,
+    paddingVertical: 6,
     alignItems: 'center',
-  },
-  filterPillActive: {
-    backgroundColor: colors.primary,
   },
   syncBanner: {
-    backgroundColor: colors.primary + '25',
     borderBottomWidth: 1,
-    borderColor: colors.primary,
-    padding: spacing.sm,
     alignItems: 'center',
-  },
-  syncBannerText: {
-    color: colors.primary,
   },
   offlineBanner: {
-    backgroundColor: colors.warning + '25',
-    paddingVertical: spacing.xs,
     alignItems: 'center',
   },
-  offlineText: {
-    color: colors.warning,
-  },
-  listContent: {
-    padding: spacing.md,
-    gap: spacing.md,
-  },
-  itemCard: {
-    padding: spacing.md,
-  },
+  listContent: {},
+  itemCard: {},
   itemHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: spacing.md,
   },
   typeBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
   },
   typeIcon: {
     fontSize: 28,
   },
-  dateText: {
-    color: colors.textSecondary,
-    marginTop: 2,
-  },
   pendingChip: {
-    paddingHorizontal: spacing.sm,
+    paddingHorizontal: 8,
     paddingVertical: 2,
-    borderRadius: 12,
-    backgroundColor: colors.warning + '25',
-  },
-  pendingText: {
-    color: colors.warning,
   },
   statsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingTop: spacing.sm,
     borderTopWidth: 1,
-    borderColor: colors.border,
   },
   statCol: {
     alignItems: 'center',
-  },
-  statLabel: {
-    color: colors.textMuted,
-    marginBottom: 2,
-  },
-  statVal: {
-    color: colors.text,
   },
   paginationRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: spacing.md,
   },
   pageBtn: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    backgroundColor: colors.surface,
-    borderRadius: 8,
     borderWidth: 1,
-    borderColor: colors.border,
-  },
-  pageBtnDisabled: {
-    opacity: 0.4,
-  },
-  pageBtnText: {
-    color: colors.primary,
-  },
-  pageInfo: {
-    color: colors.textSecondary,
   },
 });

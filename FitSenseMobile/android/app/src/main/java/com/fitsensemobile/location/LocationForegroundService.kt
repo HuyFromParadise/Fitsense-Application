@@ -372,8 +372,17 @@ class LocationForegroundService : Service(), LocationListener {
 
     @Deprecated("Deprecated in Android API 29")
     override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {}
-    override fun onProviderEnabled(provider: String) {}
-    override fun onProviderDisabled(provider: String) {}
+    override fun onProviderEnabled(provider: String) {
+        if (currentStatus == "PAUSED") {
+            updateNotification()
+        }
+    }
+
+    override fun onProviderDisabled(provider: String) {
+        if (currentStatus == "ACTIVE") {
+            handlePause()
+        }
+    }
 
     private fun computeDurationSeconds(nowMs: Long): Int {
         val pausedOffset = pauseStartedAtMs?.let { (nowMs - it).coerceAtLeast(0L) } ?: 0L
