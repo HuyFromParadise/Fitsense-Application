@@ -128,7 +128,7 @@ export const exerciseNative = {
 
   subscribe: (listener: (event: ExerciseNativeEvent) => void): (() => void) => {
     if (!eventEmitter) return () => {};
-    const sub = eventEmitter.addListener('EXERCISE_STATE', listener);
+    const sub = eventEmitter.addListener('EXERCISE_STATE', listener as (event: any) => void);
     return () => sub.remove();
   },
 };
