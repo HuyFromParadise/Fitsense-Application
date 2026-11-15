@@ -1,4 +1,4 @@
-export * from './types';
-export * from './analyticsApi';
+export { AnalyticsScreen } from './screens/AnalyticsScreen';
 export * from './useAnalytics';
-export * from './AnalyticsScreen';
+export * from './analyticsApi';
+export * from './types';
