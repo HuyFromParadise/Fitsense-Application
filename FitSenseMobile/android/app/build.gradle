@@ -11,10 +11,6 @@ def localPropertiesFile = rootProject.file("local.properties")
 if (localPropertiesFile.exists()) {
     localPropertiesFile.withInputStream { localProperties.load(it) }
 }
-def googleMapsApiKey = System.getenv("GOOGLE_MAPS_API_KEY") ?: localProperties.getProperty("GOOGLE_MAPS_API_KEY") ?: ""
-if (googleMapsApiKey.isEmpty()) {
-    logger.warn("GOOGLE_MAPS_API_KEY is not set; Google Maps will not render.")
-}
 /**
  * This is the configuration block to customize your React Native Android app.
  * By default you don't need to apply any configuration, just uncomment the lines you need.
@@ -106,7 +102,10 @@ def getEnvProperty(String key, String defaultValue = "") {
     return defaultValue
 }
 
-def googleMapsApiKey = getEnvProperty("GOOGLE_MAPS_API_KEY", "AIzaSyDummyKeyForLocalDevelopment")
+def googleMapsApiKey = getEnvProperty(
+    "GOOGLE_MAPS_API_KEY",
+    localProperties.getProperty("GOOGLE_MAPS_API_KEY", "AIzaSyDummyKeyForLocalDevelopment")
+)
 
 android {
     ndkVersion rootProject.ext.ndkVersion
@@ -120,14 +119,7 @@ android {
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
         versionName "1.0"
-<<<<<<< HEAD
         manifestPlaceholders = [usesCleartextTraffic: "true", googleMapsApiKey: googleMapsApiKey]
-=======
-        manifestPlaceholders = [
-            usesCleartextTraffic: "true",
-            googleMapsApiKey: googleMapsApiKey
-        ]
->>>>>>> origin/main
     }
     signingConfigs {
         debug {
