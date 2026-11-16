@@ -8,7 +8,7 @@ import {
   Animated,
 } from 'react-native';
 import MapView, { Polyline, Marker } from 'react-native-maps';
-import { colors, spacing, typography } from '../../theme';
+import { useTheme } from '../../app/providers/ThemeProvider';
 import { Button, Card } from '../../components/common';
 import {
   EXERCISE_TYPE_META,
@@ -34,6 +34,7 @@ const DEFAULT_REGION = {
 export const ExerciseTrackingScreen: React.FC<ExerciseTrackingScreenProps> = ({
   navigation,
 }) => {
+  const { colors, spacing, radius, typography } = useTheme();
   const {
     selectedType,
     setSelectedType,
@@ -111,7 +112,7 @@ export const ExerciseTrackingScreen: React.FC<ExerciseTrackingScreenProps> = ({
   });
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Live GPS Map */}
       <View style={styles.mapContainer}>
         <MapView
@@ -138,8 +139,8 @@ export const ExerciseTrackingScreen: React.FC<ExerciseTrackingScreenProps> = ({
         </MapView>
 
         {/* Top Bar Overlay */}
-        <View style={styles.topOverlay}>
-          <View style={styles.statusChip}>
+        <View style={[styles.topOverlay, { top: spacing.md, left: spacing.md, right: spacing.md }]}>
+          <View style={[styles.statusChip, { backgroundColor: colors.surface + 'EE', borderColor: colors.border }]}>
             <View
               style={[
                 styles.statusDot,
@@ -153,7 +154,7 @@ export const ExerciseTrackingScreen: React.FC<ExerciseTrackingScreenProps> = ({
                 },
               ]}
             />
-            <Text style={[typography.captionBold, styles.statusText]}>
+            <Text style={[typography.caption, { color: colors.text, fontWeight: '700' }]}>
               {status === 'IDLE'
                 ? 'Sẵn sàng'
                 : status === 'ACTIVE'
@@ -163,10 +164,10 @@ export const ExerciseTrackingScreen: React.FC<ExerciseTrackingScreenProps> = ({
           </View>
 
           <TouchableOpacity
-            style={styles.historyBtn}
+            style={[styles.historyBtn, { backgroundColor: colors.surface + 'EE', borderColor: colors.border }]}
             onPress={() => navigation.navigate('ExerciseHistory')}
           >
-            <Text style={[typography.captionBold, styles.historyBtnText]}>
+            <Text style={[typography.caption, { color: colors.primary, fontWeight: '700' }]}>
               📜 Lịch sử
             </Text>
           </TouchableOpacity>
@@ -174,10 +175,10 @@ export const ExerciseTrackingScreen: React.FC<ExerciseTrackingScreenProps> = ({
       </View>
 
       {/* Bottom Tracking Control Panel */}
-      <View style={styles.panel}>
+      <View style={[styles.panel, { backgroundColor: colors.surface, borderColor: colors.border, padding: spacing.md }]}>
         {/* Exercise Type Selector (only when IDLE) */}
         {status === 'IDLE' && (
-          <View style={styles.typeRow}>
+          <View style={[styles.typeRow, { gap: spacing.sm, marginBottom: spacing.md }]}>
             {(['WALKING', 'RUNNING', 'CYCLING'] as ExerciseType[]).map((t) => {
               const meta = EXERCISE_TYPE_META[t];
               const isSelected = selectedType === t;
@@ -186,9 +187,10 @@ export const ExerciseTrackingScreen: React.FC<ExerciseTrackingScreenProps> = ({
                   key={t}
                   style={[
                     styles.typePill,
-                    isSelected && {
-                      borderColor: meta.color,
-                      backgroundColor: meta.color + '25',
+                    {
+                      borderColor: isSelected ? meta.color : colors.border,
+                      backgroundColor: isSelected ? meta.color + '25' : colors.surfaceAlt,
+                      borderRadius: radius.md,
                     },
                   ]}
                   onPress={() => setSelectedType(t)}
@@ -196,8 +198,8 @@ export const ExerciseTrackingScreen: React.FC<ExerciseTrackingScreenProps> = ({
                   <Text style={styles.typeIcon}>{meta.icon}</Text>
                   <Text
                     style={[
-                      typography.captionBold,
-                      { color: isSelected ? meta.color : colors.textSecondary },
+                      typography.caption,
+                      { color: isSelected ? meta.color : colors.textMuted, fontWeight: '700' },
                     ]}
                   >
                     {meta.label}
@@ -209,38 +211,38 @@ export const ExerciseTrackingScreen: React.FC<ExerciseTrackingScreenProps> = ({
         )}
 
         {/* Primary Timer */}
-        <View style={styles.timerContainer}>
-          <Text style={[typography.caption, styles.timerLabel]}>THỜI GIAN</Text>
-          <Text style={styles.timerValue}>{formatDuration(elapsedSeconds)}</Text>
+        <View style={[styles.timerContainer, { marginBottom: spacing.sm }]}>
+          <Text style={[typography.caption, { color: colors.textMuted, letterSpacing: 1 }]}>THỜI GIAN</Text>
+          <Text style={[styles.timerValue, { color: colors.text }]}>{formatDuration(elapsedSeconds)}</Text>
         </View>
 
         {/* Metrics Grid */}
-        <View style={styles.metricsGrid}>
-          <Card style={styles.metricCard}>
-            <Text style={[typography.caption, styles.metricLabel]}>Quãng đường</Text>
-            <Text style={[typography.h2, styles.metricValue]}>
-              {formatDistanceKm(distanceM)} <Text style={styles.unit}>km</Text>
+        <View style={[styles.metricsGrid, { gap: spacing.sm, marginBottom: spacing.md }]}>
+          <Card style={[styles.metricCard, { backgroundColor: colors.background, padding: spacing.sm + 2, borderRadius: radius.md }]}>
+            <Text style={[typography.caption, { color: colors.textMuted, marginBottom: 2 }]}>Quãng đường</Text>
+            <Text style={[typography.heading, { color: colors.text }]}>
+              {formatDistanceKm(distanceM)} <Text style={[styles.unit, { color: colors.textMuted }]}>km</Text>
             </Text>
           </Card>
 
-          <Card style={styles.metricCard}>
-            <Text style={[typography.caption, styles.metricLabel]}>Pace TB</Text>
-            <Text style={[typography.h2, styles.metricValue]}>
-              {formatPace(avgPaceSecPerKm)} <Text style={styles.unit}>/km</Text>
+          <Card style={[styles.metricCard, { backgroundColor: colors.background, padding: spacing.sm + 2, borderRadius: radius.md }]}>
+            <Text style={[typography.caption, { color: colors.textMuted, marginBottom: 2 }]}>Pace TB</Text>
+            <Text style={[typography.heading, { color: colors.text }]}>
+              {formatPace(avgPaceSecPerKm)} <Text style={[styles.unit, { color: colors.textMuted }]}>/km</Text>
             </Text>
           </Card>
 
-          <Card style={styles.metricCard}>
-            <Text style={[typography.caption, styles.metricLabel]}>Tốc độ</Text>
-            <Text style={[typography.h2, styles.metricValue]}>
-              {formatSpeedKmh(currentSpeedMps)} <Text style={styles.unit}>km/h</Text>
+          <Card style={[styles.metricCard, { backgroundColor: colors.background, padding: spacing.sm + 2, borderRadius: radius.md }]}>
+            <Text style={[typography.caption, { color: colors.textMuted, marginBottom: 2 }]}>Tốc độ</Text>
+            <Text style={[typography.heading, { color: colors.text }]}>
+              {formatSpeedKmh(currentSpeedMps)} <Text style={[styles.unit, { color: colors.textMuted }]}>km/h</Text>
             </Text>
           </Card>
 
-          <Card style={styles.metricCard}>
-            <Text style={[typography.caption, styles.metricLabel]}>Calo</Text>
-            <Text style={[typography.h2, styles.metricValue]}>
-              {calories.toFixed(0)} <Text style={styles.unit}>kcal</Text>
+          <Card style={[styles.metricCard, { backgroundColor: colors.background, padding: spacing.sm + 2, borderRadius: radius.md }]}>
+            <Text style={[typography.caption, { color: colors.textMuted, marginBottom: 2 }]}>Calo</Text>
+            <Text style={[typography.heading, { color: colors.text }]}>
+              {calories.toFixed(0)} <Text style={[styles.unit, { color: colors.textMuted }]}>kcal</Text>
             </Text>
           </Card>
         </View>
@@ -254,7 +256,7 @@ export const ExerciseTrackingScreen: React.FC<ExerciseTrackingScreenProps> = ({
               style={{ backgroundColor: activeMeta.color }}
             />
           ) : (
-            <View style={styles.activeControls}>
+            <View style={[styles.activeControls, { gap: spacing.sm }]}>
               <Button
                 title={status === 'ACTIVE' ? 'Tạm dừng' : 'Tiếp tục'}
                 variant={status === 'ACTIVE' ? 'secondary' : 'primary'}
@@ -268,17 +270,28 @@ export const ExerciseTrackingScreen: React.FC<ExerciseTrackingScreenProps> = ({
                 onPressIn={startHoldFinish}
                 onPressOut={cancelHoldFinish}
                 disabled={isSyncing}
-                style={[styles.holdFinishBtn, styles.controlHalf]}
+                style={[
+                  styles.holdFinishBtn,
+                  styles.controlHalf,
+                  {
+                    backgroundColor: colors.danger + '33',
+                    borderColor: colors.danger,
+                    borderRadius: radius.md,
+                  },
+                ]}
               >
                 <Animated.View
-                  style={[styles.holdProgressFill, { width: holdWidthInterpolated }]}
+                  style={[
+                    styles.holdProgressFill,
+                    { width: holdWidthInterpolated, backgroundColor: colors.danger },
+                  ]}
                 />
-                <Text style={[typography.button, styles.holdFinishText]}>
+                <Text style={[typography.label, styles.holdFinishText]}>
                   {isSyncing
                     ? 'Đang lưu...'
                     : holdingFinish
-                    ? 'Giữ tiếp...'
-                    : 'Giữ 2s Kết thúc'}
+                    ? 'Giữ 2s để kết thúc...'
+                    : 'Giữ kết thúc ⏹'}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -286,55 +299,48 @@ export const ExerciseTrackingScreen: React.FC<ExerciseTrackingScreenProps> = ({
         </View>
       </View>
 
-      {/* Post-Workout Summary Modal */}
+      {/* Summary Modal on Finish */}
       <Modal
-        visible={Boolean(finishedSummary)}
+        visible={finishedSummary !== null}
         transparent
-        animationType="slide"
-        onRequestClose={dismissSummary}
+        animationType="fade"
       >
         <View style={styles.modalOverlay}>
-          <Card style={styles.modalCard}>
-            <Text style={styles.modalIcon}>🎉</Text>
-            <Text style={[typography.h2, styles.modalTitle]}>
-              Hoàn thành buổi tập!
-            </Text>
+          <Card style={[styles.modalCard, { padding: spacing.lg }]}>
             {finishedSummary && (
               <>
-                <Text style={[typography.captionBold, styles.syncBadge]}>
+                <Text style={styles.modalIcon}>🏆</Text>
+                <Text style={[typography.title, { color: colors.text, marginBottom: spacing.xs }]}>
+                  Hoàn thành buổi tập!
+                </Text>
+                <Text style={[typography.caption, { color: colors.primary, marginBottom: spacing.md, textAlign: 'center' }]}>
                   {finishedSummary.syncedToServer
-                    ? '☁️ Đã đồng bộ lên server'
-                    : '💾 Đã lưu offline (sẽ tự đồng bộ khi có mạng)'}
+                    ? '✅ Đã lưu và đồng bộ lên server thành công'
+                    : '💾 Đã lưu cục bộ. Sẽ đồng bộ khi có kết nối mạng'}
                 </Text>
 
-                <View style={styles.summaryRows}>
+                <View style={[styles.summaryRows, { gap: spacing.sm, marginVertical: spacing.md, borderColor: colors.border }]}>
                   <View style={styles.summaryRow}>
-                    <Text style={[typography.body, styles.summaryLabel]}>Loại hình</Text>
-                    <Text style={[typography.bodyBold, styles.summaryVal]}>
-                      {EXERCISE_TYPE_META[finishedSummary.summary.type].label}
-                    </Text>
-                  </View>
-                  <View style={styles.summaryRow}>
-                    <Text style={[typography.body, styles.summaryLabel]}>Quãng đường</Text>
-                    <Text style={[typography.bodyBold, styles.summaryVal]}>
+                    <Text style={[typography.body, { color: colors.textMuted }]}>Quãng đường:</Text>
+                    <Text style={[typography.body, { color: colors.text, fontWeight: '700' }]}>
                       {formatDistanceKm(finishedSummary.summary.metrics.distanceM)} km
                     </Text>
                   </View>
                   <View style={styles.summaryRow}>
-                    <Text style={[typography.body, styles.summaryLabel]}>Thời gian</Text>
-                    <Text style={[typography.bodyBold, styles.summaryVal]}>
+                    <Text style={[typography.body, { color: colors.textMuted }]}>Thời gian:</Text>
+                    <Text style={[typography.body, { color: colors.text, fontWeight: '700' }]}>
                       {formatDuration(finishedSummary.summary.metrics.durationSeconds)}
                     </Text>
                   </View>
                   <View style={styles.summaryRow}>
-                    <Text style={[typography.body, styles.summaryLabel]}>Pace trung bình</Text>
-                    <Text style={[typography.bodyBold, styles.summaryVal]}>
+                    <Text style={[typography.body, { color: colors.textMuted }]}>Pace trung bình:</Text>
+                    <Text style={[typography.body, { color: colors.text, fontWeight: '700' }]}>
                       {formatPace(finishedSummary.summary.metrics.avgPaceSecPerKm)} /km
                     </Text>
                   </View>
                   <View style={styles.summaryRow}>
-                    <Text style={[typography.body, styles.summaryLabel]}>Năng lượng</Text>
-                    <Text style={[typography.bodyBold, styles.summaryVal]}>
+                    <Text style={[typography.body, { color: colors.textMuted }]}>Calo tiêu thụ:</Text>
+                    <Text style={[typography.body, { color: colors.text, fontWeight: '700' }]}>
                       {finishedSummary.summary.metrics.calories.toFixed(0)} kcal
                     </Text>
                   </View>
@@ -347,13 +353,13 @@ export const ExerciseTrackingScreen: React.FC<ExerciseTrackingScreenProps> = ({
                     dismissSummary();
                     navigation.navigate('ExerciseHistory');
                   }}
-                  style={styles.modalBtn}
+                  style={{ width: '100%', marginTop: spacing.sm }}
                 />
                 <Button
                   title="Đóng"
-                  variant="outline"
+                  variant="ghost"
                   onPress={dismissSummary}
-                  style={styles.modalBtn}
+                  style={{ width: '100%', marginTop: spacing.sm }}
                 />
               </>
             )}
@@ -367,7 +373,6 @@ export const ExerciseTrackingScreen: React.FC<ExerciseTrackingScreenProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
   },
   mapContainer: {
     flex: 1,
@@ -378,9 +383,6 @@ const styles = StyleSheet.create({
   },
   topOverlay: {
     position: 'absolute',
-    top: spacing.md,
-    left: spacing.md,
-    right: spacing.md,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -388,45 +390,30 @@ const styles = StyleSheet.create({
   statusChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.surface + 'EE',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs + 2,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: colors.border,
   },
   statusDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    marginRight: spacing.xs,
-  },
-  statusText: {
-    color: colors.text,
+    marginRight: 6,
   },
   historyBtn: {
-    backgroundColor: colors.surface + 'EE',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs + 2,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: colors.border,
-  },
-  historyBtnText: {
-    color: colors.primary,
   },
   panel: {
-    backgroundColor: colors.surface,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    padding: spacing.md,
     borderTopWidth: 1,
-    borderColor: colors.border,
   },
   typeRow: {
     flexDirection: 'row',
-    gap: spacing.sm,
-    marginBottom: spacing.md,
   },
   typePill: {
     flex: 1,
@@ -434,69 +421,43 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    paddingVertical: spacing.sm,
-    borderRadius: 12,
+    paddingVertical: 8,
     borderWidth: 1.5,
-    borderColor: colors.border,
-    backgroundColor: colors.surfaceLight,
   },
   typeIcon: {
     fontSize: 16,
   },
   timerContainer: {
     alignItems: 'center',
-    marginBottom: spacing.sm,
-  },
-  timerLabel: {
-    color: colors.textSecondary,
-    letterSpacing: 1,
   },
   timerValue: {
     fontSize: 38,
     fontWeight: '700',
-    color: colors.text,
     fontVariant: ['tabular-nums'],
   },
   metricsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: spacing.sm,
-    marginBottom: spacing.md,
   },
   metricCard: {
     width: '48.5%',
-    padding: spacing.sm + 2,
-    backgroundColor: colors.background,
-    borderRadius: 12,
-  },
-  metricLabel: {
-    color: colors.textSecondary,
-    marginBottom: 2,
-  },
-  metricValue: {
-    color: colors.text,
   },
   unit: {
     fontSize: 13,
     fontWeight: '400',
-    color: colors.textSecondary,
   },
   controls: {
-    marginTop: spacing.xs,
+    marginTop: 4,
   },
   activeControls: {
     flexDirection: 'row',
-    gap: spacing.sm,
   },
   controlHalf: {
     flex: 1,
   },
   holdFinishBtn: {
-    height: 50,
-    borderRadius: 12,
-    backgroundColor: colors.error + '33',
+    height: 48,
     borderWidth: 1.5,
-    borderColor: colors.error,
     justifyContent: 'center',
     alignItems: 'center',
     overflow: 'hidden',
@@ -507,56 +468,32 @@ const styles = StyleSheet.create({
     left: 0,
     top: 0,
     bottom: 0,
-    backgroundColor: colors.error,
   },
   holdFinishText: {
-    color: colors.white,
+    color: '#FFFFFF',
     zIndex: 1,
   },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.7)',
     justifyContent: 'center',
-    padding: spacing.lg,
+    padding: 24,
   },
   modalCard: {
-    padding: spacing.lg,
     alignItems: 'center',
   },
   modalIcon: {
     fontSize: 48,
-    marginBottom: spacing.xs,
-  },
-  modalTitle: {
-    color: colors.text,
-    marginBottom: spacing.xs,
-  },
-  syncBadge: {
-    color: colors.primary,
-    marginBottom: spacing.md,
-    textAlign: 'center',
+    marginBottom: 4,
   },
   summaryRows: {
     width: '100%',
-    gap: spacing.sm,
-    marginBottom: spacing.lg,
-    paddingVertical: spacing.sm,
+    paddingVertical: 8,
     borderTopWidth: 1,
     borderBottomWidth: 1,
-    borderColor: colors.border,
   },
   summaryRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-  },
-  summaryLabel: {
-    color: colors.textSecondary,
-  },
-  summaryVal: {
-    color: colors.text,
-  },
-  modalBtn: {
-    width: '100%',
-    marginTop: spacing.sm,
   },
 });

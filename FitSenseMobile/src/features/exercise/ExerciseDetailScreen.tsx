@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import MapView, { Marker, Polyline } from 'react-native-maps';
 import { useQuery } from '@tanstack/react-query';
-import { colors, spacing, typography } from '../../theme';
+import { useTheme } from '../../app/providers/ThemeProvider';
 import { Card, Loading } from '../../components/common';
 import { exerciseApi } from './exerciseApi';
 import { exerciseNative } from './exerciseNative';
@@ -28,6 +28,7 @@ interface ExerciseDetailScreenProps {
 export const ExerciseDetailScreen: React.FC<ExerciseDetailScreenProps> = ({
   route,
 }) => {
+  const { colors, spacing, typography } = useTheme();
   const { exerciseId, fallbackSummary } = route.params;
   const mapRef = useRef<MapView | null>(null);
   const [localDetail, setLocalDetail] = useState<ExerciseDetail | null>(null);
@@ -81,8 +82,8 @@ export const ExerciseDetailScreen: React.FC<ExerciseDetailScreenProps> = ({
 
   if (!detail) {
     return (
-      <View style={styles.emptyContainer}>
-        <Text style={[typography.body, { color: colors.textSecondary }]}>
+      <View style={[styles.emptyContainer, { backgroundColor: colors.background }]}>
+        <Text style={[typography.body, { color: colors.textMuted }]}>
           Không tìm thấy thông tin buổi tập.
         </Text>
       </View>
@@ -92,7 +93,7 @@ export const ExerciseDetailScreen: React.FC<ExerciseDetailScreenProps> = ({
   const meta = EXERCISE_TYPE_META[detail.type];
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView style={[styles.container, { backgroundColor: colors.background }]} contentContainerStyle={[styles.content, { padding: spacing.md, gap: spacing.md }]}>
       {/* Route Polyline Map */}
       <Card style={styles.mapCard}>
         {coords.length > 0 ? (
@@ -125,7 +126,7 @@ export const ExerciseDetailScreen: React.FC<ExerciseDetailScreenProps> = ({
         ) : (
           <View style={styles.noGpsBox}>
             <Text style={styles.noGpsIcon}>🗺️</Text>
-            <Text style={[typography.body, styles.noGpsText]}>
+            <Text style={[typography.body, { color: colors.textMuted }]}>
               Buổi tập này không có tọa độ GPS
             </Text>
           </View>
@@ -133,16 +134,16 @@ export const ExerciseDetailScreen: React.FC<ExerciseDetailScreenProps> = ({
       </Card>
 
       {/* Header Summary */}
-      <Card style={styles.infoCard}>
-        <View style={styles.headerRow}>
+      <Card style={{ padding: spacing.md }}>
+        <View style={[styles.headerRow, { gap: spacing.md }]}>
           <Text style={styles.typeIcon}>{meta.icon}</Text>
           <View>
-            <Text style={[typography.h2, { color: meta.color }]}>{meta.label}</Text>
-            <Text style={[typography.caption, styles.dateText]}>
+            <Text style={[typography.heading, { color: meta.color }]}>{meta.label}</Text>
+            <Text style={[typography.caption, { color: colors.textMuted, marginTop: 2 }]}>
               Bắt đầu: {formatDateTime(detail.startedAt)}
             </Text>
             {detail.endedAt && (
-              <Text style={[typography.caption, styles.dateText]}>
+              <Text style={[typography.caption, { color: colors.textMuted, marginTop: 2 }]}>
                 Kết thúc: {formatDateTime(detail.endedAt)}
               </Text>
             )}
@@ -151,40 +152,40 @@ export const ExerciseDetailScreen: React.FC<ExerciseDetailScreenProps> = ({
       </Card>
 
       {/* Metrics Breakdown */}
-      <View style={styles.metricsGrid}>
+      <View style={[styles.metricsGrid, { gap: spacing.sm }]}>
         <Card style={styles.metricBox}>
-          <Text style={[typography.caption, styles.metricLabel]}>Quãng đường</Text>
-          <Text style={[typography.h2, styles.metricVal]}>
+          <Text style={[typography.caption, { color: colors.textMuted, marginBottom: 4 }]}>Quãng đường</Text>
+          <Text style={[typography.heading, { color: colors.text }]}>
             {formatDistanceKm(detail.metrics.distanceM)} km
           </Text>
         </Card>
         <Card style={styles.metricBox}>
-          <Text style={[typography.caption, styles.metricLabel]}>Thời gian tập</Text>
-          <Text style={[typography.h2, styles.metricVal]}>
+          <Text style={[typography.caption, { color: colors.textMuted, marginBottom: 4 }]}>Thời gian tập</Text>
+          <Text style={[typography.heading, { color: colors.text }]}>
             {formatDuration(detail.metrics.durationSeconds)}
           </Text>
         </Card>
         <Card style={styles.metricBox}>
-          <Text style={[typography.caption, styles.metricLabel]}>Pace trung bình</Text>
-          <Text style={[typography.h2, styles.metricVal]}>
+          <Text style={[typography.caption, { color: colors.textMuted, marginBottom: 4 }]}>Pace trung bình</Text>
+          <Text style={[typography.heading, { color: colors.text }]}>
             {formatPace(detail.metrics.avgPaceSecPerKm)} /km
           </Text>
         </Card>
         <Card style={styles.metricBox}>
-          <Text style={[typography.caption, styles.metricLabel]}>Tốc độ trung bình</Text>
-          <Text style={[typography.h2, styles.metricVal]}>
+          <Text style={[typography.caption, { color: colors.textMuted, marginBottom: 4 }]}>Tốc độ trung bình</Text>
+          <Text style={[typography.heading, { color: colors.text }]}>
             {formatSpeedKmh(detail.metrics.avgSpeedMps)} km/h
           </Text>
         </Card>
         <Card style={styles.metricBox}>
-          <Text style={[typography.caption, styles.metricLabel]}>Calo tiêu hao</Text>
-          <Text style={[typography.h2, styles.metricVal]}>
+          <Text style={[typography.caption, { color: colors.textMuted, marginBottom: 4 }]}>Calo tiêu hao</Text>
+          <Text style={[typography.heading, { color: colors.text }]}>
             {detail.metrics.calories.toFixed(0)} kcal
           </Text>
         </Card>
         <Card style={styles.metricBox}>
-          <Text style={[typography.caption, styles.metricLabel]}>Điểm GPS đã ghi</Text>
-          <Text style={[typography.h2, styles.metricVal]}>
+          <Text style={[typography.caption, { color: colors.textMuted, marginBottom: 4 }]}>Điểm GPS đã ghi</Text>
+          <Text style={[typography.heading, { color: colors.text }]}>
             {detail.gpsPoints.length} điểm
           </Text>
         </Card>
@@ -196,16 +197,12 @@ export const ExerciseDetailScreen: React.FC<ExerciseDetailScreenProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
   },
   content: {
-    padding: spacing.md,
-    gap: spacing.md,
-    paddingBottom: spacing.xxl,
+    paddingBottom: 40,
   },
   emptyContainer: {
     flex: 1,
-    backgroundColor: colors.background,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -224,40 +221,20 @@ const styles = StyleSheet.create({
   },
   noGpsIcon: {
     fontSize: 40,
-    marginBottom: spacing.xs,
-  },
-  noGpsText: {
-    color: colors.textSecondary,
-  },
-  infoCard: {
-    padding: spacing.md,
+    marginBottom: 8,
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.md,
   },
   typeIcon: {
     fontSize: 40,
   },
-  dateText: {
-    color: colors.textSecondary,
-    marginTop: 2,
-  },
   metricsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: spacing.sm,
   },
   metricBox: {
     width: '48.5%',
-    padding: spacing.md,
-  },
-  metricLabel: {
-    color: colors.textSecondary,
-    marginBottom: 4,
-  },
-  metricVal: {
-    color: colors.text,
   },
 });

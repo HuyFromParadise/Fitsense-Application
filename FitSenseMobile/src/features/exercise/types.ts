@@ -1,5 +1,5 @@
 export type ExerciseType = 'WALKING' | 'RUNNING' | 'CYCLING';
-export type ExerciseStatus = 'ACTIVE' | 'PAUSED' | 'FINISHED' | 'DISCARDED';
+export type ExerciseStatus = 'IDLE' | 'ACTIVE' | 'PAUSED' | 'FINISHED' | 'DISCARDED';
 
 export interface GpsPoint {
   seq: number;

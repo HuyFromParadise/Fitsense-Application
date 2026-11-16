@@ -20,6 +20,10 @@ export async function updateMyProfile(
   return data.data;
 }
 
+export async function deleteMyAccount(): Promise<void> {
+  await apiClient.delete('/api/users/me');
+}
+
 /**
  * Guarantees the MySQL `users` row exists for the signed-in Firebase user.
  * The backend creates it lazily on the first /api/users/me call, so login alone
