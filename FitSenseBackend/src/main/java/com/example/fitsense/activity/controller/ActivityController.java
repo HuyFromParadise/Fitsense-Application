@@ -1,20 +1,24 @@
 package com.example.fitsense.activity.controller;
 
+import com.example.fitsense.activity.dto.ActivitySyncRequest;
 import com.example.fitsense.activity.dto.DailyActivityResponse;
 import com.example.fitsense.activity.service.ActivityService;
-import com.example.fitsense.common.exception.ApiException;
 import com.example.fitsense.common.response.ApiResponse;
 import com.example.fitsense.common.response.PageResponse;
 import com.example.fitsense.common.security.AuthenticatedUser;
 import com.example.fitsense.common.security.CurrentUser;
+import com.example.fitsense.sync.dto.SyncItemResult;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import java.time.LocalDate;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -49,7 +53,10 @@ public class ActivityController {
     }
 
     @PostMapping("/sync")
-    public ApiResponse<Void> sync() {
-        throw ApiException.notImplemented("Activity sync");
+    @Operation(summary = "Upsert up to 31 daily summaries (last write wins on client updatedAt)")
+    public ApiResponse<List<SyncItemResult>> sync(
+            @AuthenticatedUser CurrentUser authUser,
+            @Valid @RequestBody ActivitySyncRequest request) {
+        return ApiResponse.ok(activityService.sync(authUser, request));
     }
 }
