@@ -37,10 +37,15 @@ export function ProfileScreen() {
     }
   }, [profile]);
 
+  // Helper to normalize decimal input with comma or dot (e.g. "65,5" -> "65.5")
+  const normalizeNumber = (str: string) => str.replace(',', '.').trim();
+
   // Compute BMI locally for instantaneous feedback
   const computeBmi = () => {
-    const h = parseFloat(heightCm);
-    const w = parseFloat(weightKg);
+    const cleanH = normalizeNumber(heightCm);
+    const cleanW = normalizeNumber(weightKg);
+    const h = parseFloat(cleanH);
+    const w = parseFloat(cleanW);
     if (!h || !w || h <= 0) return null;
     const hM = h / 100.0;
     const val = w / (hM * hM);
@@ -58,14 +63,16 @@ export function ProfileScreen() {
   };
 
   const handleSave = async () => {
-    const h = parseFloat(heightCm);
-    const w = parseFloat(weightKg);
+    const cleanH = normalizeNumber(heightCm);
+    const cleanW = normalizeNumber(weightKg);
+    const h = parseFloat(cleanH);
+    const w = parseFloat(cleanW);
 
-    if (heightCm && (isNaN(h) || h < 50 || h > 260)) {
+    if (cleanH && (isNaN(h) || h < 50 || h > 260)) {
       Alert.alert('Lỗi', 'Chiều cao phải từ 50cm đến 260cm');
       return;
     }
-    if (weightKg && (isNaN(w) || w < 20 || w > 400)) {
+    if (cleanW && (isNaN(w) || w < 20 || w > 400)) {
       Alert.alert('Lỗi', 'Cân nặng phải từ 20kg đến 400kg');
       return;
     }
@@ -74,8 +81,8 @@ export function ProfileScreen() {
     try {
       await updateProfile({
         displayName: displayName.trim(),
-        heightCm: heightCm ? h : undefined,
-        weightKg: weightKg ? w : undefined,
+        heightCm: cleanH ? h : undefined,
+        weightKg: cleanW ? w : undefined,
         gender,
         fitnessLevel,
       });
