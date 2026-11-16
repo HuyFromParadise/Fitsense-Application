@@ -11,12 +11,14 @@ import { useTheme } from '../../../app/providers/ThemeProvider';
 import { Button, Input, Card, Loading } from '../../../components/common';
 import { useAuthStore } from '../../../stores/useAuthStore';
 import { useProfile } from '../useProfile';
+import { NotificationSettingsScreen } from '../../notifications/screens/NotificationSettingsScreen';
 
 export function ProfileScreen() {
   const { colors, spacing, radius, typography } = useTheme();
   const signOut = useAuthStore(state => state.signOut);
   const { profile, loading: profileLoading, refresh, updateProfile, deleteAccount } = useProfile();
 
+  const [showNotifications, setShowNotifications] = useState(false);
   const [displayName, setDisplayName] = useState('');
   const [heightCm, setHeightCm] = useState('');
   const [weightKg, setWeightKg] = useState('');
@@ -110,6 +112,10 @@ export function ProfileScreen() {
       ]
     );
   };
+
+  if (showNotifications) {
+    return <NotificationSettingsScreen onBack={() => setShowNotifications(false)} />;
+  }
 
   if (profileLoading && !profile) {
     return <Loading message="Đang tải thông tin hồ sơ..." />;
@@ -249,6 +255,15 @@ export function ProfileScreen() {
           onPress={handleSave}
           loading={saving}
           style={{ marginTop: spacing.sm }}
+        />
+      </Card>
+
+      {/* App Settings */}
+      <Card style={{ marginBottom: spacing.md }}>
+        <Button
+          title="Cài đặt thông báo & Nhắc nhở"
+          variant="secondary"
+          onPress={() => setShowNotifications(true)}
         />
       </Card>
 

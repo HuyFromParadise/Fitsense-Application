@@ -6,6 +6,8 @@ import com.example.fitsense.common.security.CurrentUser;
 import com.example.fitsense.user.dto.UserResponse;
 import com.example.fitsense.user.dto.UserUpdateRequest;
 import com.example.fitsense.user.service.UserService;
+import com.example.fitsense.notification.service.NotificationService;
+import com.example.fitsense.notification.dto.DeviceRegistrationRequest;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -26,6 +28,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class UserController {
 
     private final UserService userService;
+    private final NotificationService notificationService;
 
     @GetMapping("/me")
     @Operation(summary = "Lấy user hiện tại, tự tạo theo firebase_uid lần đầu")
@@ -50,4 +53,15 @@ public class UserController {
         userService.deleteCurrentUser(currentUser);
         return ApiResponse.ok(null);
     }
+
+    @PutMapping("/devices")
+    @Operation(summary = "Đăng ký thiết bị và FCM token nhận thông báo (alias)")
+    public ApiResponse<Void> registerDevice(
+            @AuthenticatedUser CurrentUser currentUser,
+            @Valid @RequestBody DeviceRegistrationRequest request
+    ) {
+        notificationService.registerDevice(currentUser, request);
+        return ApiResponse.ok(null);
+    }
+
 }
