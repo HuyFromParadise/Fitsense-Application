@@ -1,13 +1,22 @@
 package com.example.fitsense.activity.service;
 
+import com.example.fitsense.activity.dto.ActivitySyncRequest;
 import com.example.fitsense.activity.dto.DailyActivityResponse;
+import com.example.fitsense.activity.dto.DailyActivityUpsert;
 import com.example.fitsense.activity.entity.DailyActivityEntity;
 import com.example.fitsense.activity.repository.DailyActivityRepository;
+import com.example.fitsense.common.exception.ApiException;
+import com.example.fitsense.common.exception.ErrorCode;
 import com.example.fitsense.common.response.PageResponse;
 import com.example.fitsense.common.security.CurrentUser;
+import com.example.fitsense.sync.dto.SyncEntityType;
+import com.example.fitsense.sync.dto.SyncItemResult;
+import com.example.fitsense.sync.dto.SyncStatus;
 import com.example.fitsense.user.service.UserService;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -44,6 +53,72 @@ public class ActivityService {
 
         Page<DailyActivityEntity> rows = activityRepository.findHistory(userId, from, to, pageable);
         return PageResponse.from(rows.map(DailyActivityResponse::fromEntity));
+    }
+
+    @Transactional
+    public List<SyncItemResult> sync(CurrentUser authUser, ActivitySyncRequest request) {
+        UUID userId = currentUserId(authUser);
+        List<SyncItemResult> results = new ArrayList<>(request.items().size());
+
+        for (DailyActivityUpsert item : request.items()) {
+            validateTimezone(item.timezoneId());
+            results.add(upsert(userId, item));
+        }
+        return results;
+    }
+
+    private SyncItemResult upsert(UUID userId, DailyActivityUpsert item) {
+        String clientId = item.activityDate() + "|" + item.timezoneId();
+        return activityRepository.findByUserIdAndActivityDate(userId, item.activityDate())
+                .map(existing -> merge(clientId, existing, item))
+                .orElseGet(() -> {
+                    activityRepository.save(newEntity(userId, item));
+                    return SyncItemResult.of(
+                            SyncEntityType.DAILY_ACTIVITY, clientId, SyncStatus.CREATED, "Inserted");
+                });
+    }
+
+    private SyncItemResult merge(String clientId, DailyActivityEntity existing, DailyActivityUpsert item) {
+        int order = item.updatedAt().compareTo(existing.getClientUpdatedAt());
+        if (order < 0) {
+            return SyncItemResult.conflict(
+                    SyncEntityType.DAILY_ACTIVITY, clientId, DailyActivityResponse.fromEntity(existing));
+        }
+        if (order == 0) {
+            return SyncItemResult.of(
+                    SyncEntityType.DAILY_ACTIVITY, clientId, SyncStatus.DUPLICATE, "Already up to date");
+        }
+        existing.setTimezoneId(item.timezoneId());
+        existing.setSteps(item.steps());
+        existing.setDistanceM(item.distanceM());
+        existing.setCalories(item.calories());
+        existing.setActiveMinutes(item.activeMinutes());
+        existing.setClientUpdatedAt(item.updatedAt());
+        activityRepository.save(existing);
+        return SyncItemResult.of(
+                SyncEntityType.DAILY_ACTIVITY, clientId, SyncStatus.CREATED, "Updated");
+    }
+
+    private DailyActivityEntity newEntity(UUID userId, DailyActivityUpsert item) {
+        return DailyActivityEntity.builder()
+                .userId(userId)
+                .activityDate(item.activityDate())
+                .timezoneId(item.timezoneId())
+                .steps(item.steps())
+                .distanceM(item.distanceM())
+                .calories(item.calories())
+                .activeMinutes(item.activeMinutes())
+                .clientUpdatedAt(item.updatedAt())
+                .build();
+    }
+
+    private void validateTimezone(String timezoneId) {
+        try {
+            ZoneId.of(timezoneId);
+        } catch (RuntimeException ex) {
+            throw new ApiException(
+                    ErrorCode.VALIDATION_ERROR, "Unknown timezoneId: " + timezoneId);
+        }
     }
 
     private UUID currentUserId(CurrentUser authUser) {

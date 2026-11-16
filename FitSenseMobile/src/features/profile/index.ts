@@ -1,2 +1,3 @@
-export * from './ProfileScreen';
-export * from './useProfile';
+export { ProfileScreen } from './screens/ProfileScreen';
+export { useProfile } from './useProfile';
+export * from './profileApi';

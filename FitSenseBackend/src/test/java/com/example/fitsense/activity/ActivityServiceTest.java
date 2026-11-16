@@ -1,17 +1,26 @@
 package com.example.fitsense.activity;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.example.fitsense.activity.dto.ActivitySyncRequest;
 import com.example.fitsense.activity.dto.DailyActivityResponse;
+import com.example.fitsense.activity.dto.DailyActivityUpsert;
 import com.example.fitsense.activity.entity.DailyActivityEntity;
 import com.example.fitsense.activity.repository.DailyActivityRepository;
 import com.example.fitsense.activity.service.ActivityService;
+import com.example.fitsense.common.exception.ApiException;
+import com.example.fitsense.common.exception.ErrorCode;
 import com.example.fitsense.common.response.PageResponse;
 import com.example.fitsense.common.security.CurrentUser;
+import com.example.fitsense.sync.dto.SyncEntityType;
+import com.example.fitsense.sync.dto.SyncItemResult;
+import com.example.fitsense.sync.dto.SyncStatus;
 import com.example.fitsense.user.dto.UserResponse;
 import com.example.fitsense.user.service.UserService;
 import java.time.Instant;
@@ -22,6 +31,7 @@ import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
@@ -155,5 +165,100 @@ class ActivityServiceTest {
         assertThat(response.items()).isEmpty();
         assertThat(response.totalItems()).isZero();
         assertThat(response.hasNext()).isFalse();
+    }
+
+    @Test
+    void syncInsertsNewDailyActivity() {
+        DailyActivityUpsert item = item(Instant.parse("2026-11-12T03:00:00Z"), 8234);
+        when(activityRepository.findByUserIdAndActivityDate(userId, item.activityDate()))
+                .thenReturn(Optional.empty());
+
+        List<SyncItemResult> results = activityService.sync(authUser, request(item));
+
+        assertThat(results).hasSize(1);
+        assertThat(results.get(0).status()).isEqualTo(SyncStatus.CREATED);
+        assertThat(results.get(0).entityType()).isEqualTo(SyncEntityType.DAILY_ACTIVITY);
+        assertThat(results.get(0).clientId()).isEqualTo("2026-11-12|Asia/Ho_Chi_Minh");
+
+        ArgumentCaptor<DailyActivityEntity> saved = ArgumentCaptor.forClass(DailyActivityEntity.class);
+        verify(activityRepository).save(saved.capture());
+        assertThat(saved.getValue().getUserId()).isEqualTo(userId);
+        assertThat(saved.getValue().getSteps()).isEqualTo(8234);
+        assertThat(saved.getValue().getClientUpdatedAt()).isEqualTo(item.updatedAt());
+    }
+
+    @Test
+    void syncReturnsDuplicateWhenTimestampMatches() {
+        DailyActivityUpsert item = item(Instant.parse("2026-11-12T03:00:00Z"), 8234);
+        when(activityRepository.findByUserIdAndActivityDate(userId, item.activityDate()))
+                .thenReturn(Optional.of(entity(item.updatedAt(), 8234)));
+
+        List<SyncItemResult> results = activityService.sync(authUser, request(item));
+
+        assertThat(results.get(0).status()).isEqualTo(SyncStatus.DUPLICATE);
+        verify(activityRepository, never()).save(any());
+    }
+
+    @Test
+    void syncOverwritesWhenClientIsNewer() {
+        DailyActivityUpsert item = item(Instant.parse("2026-11-12T04:00:00Z"), 9000);
+        DailyActivityEntity existing = entity(Instant.parse("2026-11-12T03:00:00Z"), 8234);
+        when(activityRepository.findByUserIdAndActivityDate(userId, item.activityDate()))
+                .thenReturn(Optional.of(existing));
+
+        List<SyncItemResult> results = activityService.sync(authUser, request(item));
+
+        assertThat(results.get(0).status()).isEqualTo(SyncStatus.CREATED);
+        assertThat(existing.getSteps()).isEqualTo(9000);
+        assertThat(existing.getClientUpdatedAt()).isEqualTo(item.updatedAt());
+        verify(activityRepository).save(existing);
+    }
+
+    @Test
+    void syncReturnsConflictWithServerVersionWhenClientIsOlder() {
+        DailyActivityUpsert item = item(Instant.parse("2026-11-12T02:00:00Z"), 100);
+        DailyActivityEntity existing = entity(Instant.parse("2026-11-12T03:00:00Z"), 8234);
+        when(activityRepository.findByUserIdAndActivityDate(userId, item.activityDate()))
+                .thenReturn(Optional.of(existing));
+
+        List<SyncItemResult> results = activityService.sync(authUser, request(item));
+
+        assertThat(results.get(0).status()).isEqualTo(SyncStatus.CONFLICT);
+        assertThat(results.get(0).serverVersion()).isInstanceOf(DailyActivityResponse.class);
+        verify(activityRepository, never()).save(any());
+    }
+
+    @Test
+    void syncRejectsUnknownTimezone() {
+        DailyActivityUpsert item = new DailyActivityUpsert(
+                LocalDate.of(2026, 11, 12), "Mars/Olympus", 1, 1.0, 1.0, 1, Instant.parse("2026-11-12T03:00:00Z"));
+
+        assertThatThrownBy(() -> activityService.sync(authUser, request(item)))
+                .isInstanceOf(ApiException.class)
+                .extracting(ex -> ((ApiException) ex).getCode())
+                .isEqualTo(ErrorCode.VALIDATION_ERROR);
+        verify(activityRepository, never()).save(any());
+    }
+
+    private ActivitySyncRequest request(DailyActivityUpsert item) {
+        return new ActivitySyncRequest(List.of(item));
+    }
+
+    private DailyActivityUpsert item(Instant updatedAt, int steps) {
+        return new DailyActivityUpsert(
+                LocalDate.of(2026, 11, 12), "Asia/Ho_Chi_Minh", steps, 6100.5, 312.75, 82, updatedAt);
+    }
+
+    private DailyActivityEntity entity(Instant clientUpdatedAt, int steps) {
+        return DailyActivityEntity.builder()
+                .userId(userId)
+                .activityDate(LocalDate.of(2026, 11, 12))
+                .timezoneId("Asia/Ho_Chi_Minh")
+                .steps(steps)
+                .distanceM(6100.5)
+                .calories(312.75)
+                .activeMinutes(82)
+                .clientUpdatedAt(clientUpdatedAt)
+                .build();
     }
 }

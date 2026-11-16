@@ -337,12 +337,12 @@ Danh sách dưới là **toàn bộ phần còn thiếu**, đối chiếu với 
 
 ### NGÀY 7: TÍCH HỢP & BUFFER (NHẸ)
 
-- [ ] `POST /api/activities/sync` bản đầu (chuẩn bị F8): nhận `items` (max 31), upsert theo `(user_id, activity_date)`, conflict last-write-wins theo `client_updated_at`; trả `SyncItemResult[]` với `CREATED` / `DUPLICATE` / `CONFLICT`; validate `activityDate` + `timezoneId` + số âm.
-- [ ] Sửa lỗi tồn của Steps và Goals phát hiện trong tuần.
-- [ ] Goal `WEEKLY_EXERCISE_COUNT` dùng `local_exercise` của A (chỉ đọc, không ghi).
-- [ ] Tinh chỉnh ngưỡng phân loại trên máy thật (ghi lại ngưỡng đã chọn vào `SensorConfig.kt`).
-- [ ] Demo nội bộ, rà `BUGS.md`, hỗ trợ A nếu A còn nợ.
-- [ ] **Tiêu chí nghiệm thu:** Dashboard + Goals + Sensor Monitor chạy ổn trên máy thật; `POST /api/activities/sync` gọi trùng không tạo bản thứ hai.
+- [x] `POST /api/activities/sync` bản đầu (chuẩn bị F8): nhận `items` (max 31), upsert theo `(user_id, activity_date)`, conflict last-write-wins theo `client_updated_at`; trả `SyncItemResult[]` với `CREATED` / `DUPLICATE` / `CONFLICT`; validate `activityDate` + `timezoneId` + số âm.
+- [x] Sửa lỗi tồn của Steps và Goals phát hiện trong tuần.
+- [x] Goal `WEEKLY_EXERCISE_COUNT` dùng `local_exercise` của A (chỉ đọc, không ghi).
+- [ ] Tinh chỉnh ngưỡng phân loại trên máy thật (ghi lại ngưỡng đã chọn vào `SensorConfig.kt`). — chưa có máy thật trong phiên này.
+- [ ] Demo nội bộ, rà `BUGS.md`, hỗ trợ A nếu A còn nợ. — `BUGS.md` không có lỗi mở; demo máy thật chưa chạy.
+- [ ] **Tiêu chí nghiệm thu:** Dashboard + Goals + Sensor Monitor chạy ổn trên máy thật; `POST /api/activities/sync` gọi trùng không tạo bản thứ hai. — phần sync đã có test (DUPLICATE/CONFLICT); phần máy thật chưa kiểm.
 
 ---
 
