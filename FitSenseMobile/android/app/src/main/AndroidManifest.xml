@@ -33,10 +33,10 @@
         </intent-filter>
       </activity>
 
-      <!-- Google Maps API Key required by react-native-maps -->
+      <!-- Google Maps API Key loaded dynamically from .env via manifestPlaceholders -->
       <meta-data
         android:name="com.google.android.geo.API_KEY"
-        android:value="AIzaSyDummyKeyForLocalDevelopment" />
+        android:value="${googleMapsApiKey}" />
 
       <!-- Khung: F2 (A) đổ logic ghi GPS vào service này. -->
       <service
