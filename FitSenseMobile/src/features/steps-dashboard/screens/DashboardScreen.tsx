@@ -48,17 +48,18 @@ function GoalRing({ progress, steps, goal }: { progress: number; steps: number; 
         />
       </Svg>
       <View style={styles.ringCenter}>
-        <Text style={[typography.title, { color: colors.text }]}>{steps.toLocaleString()}</Text>
-        <Text style={[typography.caption, { color: colors.textMuted }]}>/ {goal.toLocaleString()} bước</Text>
+        <Text style={[typography.title, { color: colors.text, fontSize: 32, fontWeight: '700' }]}>{steps.toLocaleString()}</Text>
+        <Text style={[typography.caption, { color: colors.primary, fontWeight: '600' }]}>/ {goal.toLocaleString()} bước</Text>
       </View>
     </View>
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+function Stat({ label, value, icon }: { label: string; value: string; icon?: string }) {
   const { colors, typography } = useTheme();
   return (
     <View style={styles.stat}>
+      {icon ? <Text style={{ fontSize: 16, marginBottom: 2 }}>{icon}</Text> : null}
       <Text style={[typography.heading, { color: colors.text }]}>{value}</Text>
       <Text style={[typography.caption, { color: colors.textMuted }]}>{label}</Text>
     </View>
@@ -177,9 +178,9 @@ export function DashboardScreen() {
       </Card>
 
       <Card style={styles.row}>
-        <Stat label="km" value={(metrics.distanceM / 1000).toFixed(2)} />
-        <Stat label="kcal" value={String(Math.round(metrics.calories))} />
-        <Stat label="phút vận động" value={String(metrics.activeMinutes)} />
+        <Stat icon="📍" label="km" value={(metrics.distanceM / 1000).toFixed(2)} />
+        <Stat icon="🔥" label="kcal" value={String(Math.round(metrics.calories))} />
+        <Stat icon="⏱" label="phút vận động" value={String(metrics.activeMinutes)} />
       </Card>
 
       {status === 'UNAVAILABLE' ? (
@@ -224,7 +225,7 @@ export function DashboardScreen() {
         </Text>
         <Button
           title={activeSession ? 'Xem buổi tập' : 'Bắt đầu tập luyện'}
-          variant="secondary"
+          variant="primary"
           onPress={() => navigation.navigate('Exercise')}
         />
       </Card>

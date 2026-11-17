@@ -13,7 +13,7 @@ import {
 } from './src/app/providers';
 
 function AppContent() {
-  const { isDark } = useTheme();
+  const { isDark, colors } = useTheme();
 
   return (
     <>

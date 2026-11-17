@@ -108,7 +108,7 @@ function GoalForm({
                 backgroundColor: type === option ? colors.surfaceAlt : colors.surface,
               },
             ]}>
-            <Text style={[typography.caption, { color: colors.text }]}>
+            <Text style={[typography.caption, { color: type === option ? colors.primary : colors.textMuted, fontWeight: type === option ? '700' : '400' }]}>
               {GOAL_TYPE_LABEL[option]}
             </Text>
           </Pressable>
@@ -191,7 +191,7 @@ export function GoalsScreen() {
         {!showForm ? (
           <Button
             title="Thêm"
-            variant="secondary"
+            variant="primary"
             onPress={() => {
               setEditing(null);
               setShowForm(true);

@@ -41,3 +41,6 @@ service-account*.json
 .DS_Store
 Thumbs.db
 .codegraph/
+# Python
+__pycache__/
+*.pyc

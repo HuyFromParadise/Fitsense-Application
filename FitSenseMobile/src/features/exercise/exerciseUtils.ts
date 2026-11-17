@@ -5,7 +5,7 @@ export const EXERCISE_TYPE_META: Record<
   { label: string; icon: string; met: number; color: string }
 > = {
   WALKING: { label: 'Đi bộ', icon: '🚶', met: 3.5, color: '#10B981' },
-  RUNNING: { label: 'Chạy bộ', icon: '🏃', met: 8.5, color: '#3B82F6' },
+  RUNNING: { label: 'Chạy bộ', icon: '🏃', met: 8.5, color: '#FF6B00' },
   CYCLING: { label: 'Đạp xe', icon: '🚴', met: 7.5, color: '#F59E0B' },
 };
 

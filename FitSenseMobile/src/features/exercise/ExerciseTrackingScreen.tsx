@@ -26,6 +26,62 @@ interface ExerciseTrackingScreenProps {
   navigation: any;
 }
 
+const DARK_MAP_STYLE = [
+  { elementType: 'geometry', stylers: [{ color: '#18181f' }] },
+  { elementType: 'labels.text.stroke', stylers: [{ color: '#18181f' }] },
+  { elementType: 'labels.text.fill', stylers: [{ color: '#8a8a9e' }] },
+  {
+    featureType: 'administrative.locality',
+    elementType: 'labels.text.fill',
+    stylers: [{ color: '#c4c4d0' }],
+  },
+  {
+    featureType: 'poi',
+    elementType: 'labels.text.fill',
+    stylers: [{ color: '#a0a0b0' }],
+  },
+  {
+    featureType: 'poi.park',
+    elementType: 'geometry',
+    stylers: [{ color: '#131e17' }],
+  },
+  {
+    featureType: 'road',
+    elementType: 'geometry',
+    stylers: [{ color: '#272733' }],
+  },
+  {
+    featureType: 'road',
+    elementType: 'geometry.stroke',
+    stylers: [{ color: '#1f1f2a' }],
+  },
+  {
+    featureType: 'road',
+    elementType: 'labels.text.fill',
+    stylers: [{ color: '#9ca3af' }],
+  },
+  {
+    featureType: 'road.highway',
+    elementType: 'geometry',
+    stylers: [{ color: '#323242' }],
+  },
+  {
+    featureType: 'transit',
+    elementType: 'geometry',
+    stylers: [{ color: '#20202c' }],
+  },
+  {
+    featureType: 'water',
+    elementType: 'geometry',
+    stylers: [{ color: '#0b0f14' }],
+  },
+  {
+    featureType: 'water',
+    elementType: 'labels.text.fill',
+    stylers: [{ color: '#3d4554' }],
+  },
+];
+
 const DEFAULT_REGION = {
   latitude: 10.776889,
   longitude: 106.700806,
@@ -36,7 +92,7 @@ const DEFAULT_REGION = {
 export const ExerciseTrackingScreen: React.FC<ExerciseTrackingScreenProps> = ({
   navigation,
 }) => {
-  const { colors, spacing, radius, typography } = useTheme();
+  const { colors, spacing, radius, typography, isDark } = useTheme();
   const {
     selectedType,
     setSelectedType,
@@ -138,6 +194,7 @@ export const ExerciseTrackingScreen: React.FC<ExerciseTrackingScreenProps> = ({
           initialRegion={DEFAULT_REGION}
           showsUserLocation
           showsMyLocationButton
+          customMapStyle={isDark ? DARK_MAP_STYLE : undefined}
         >
           {routeCoords.length > 0 && (
             <Marker
@@ -156,7 +213,7 @@ export const ExerciseTrackingScreen: React.FC<ExerciseTrackingScreenProps> = ({
         </MapView>
 
         {/* Top Bar Overlay */}
-        <View style={[styles.topOverlay, { top: spacing.md, left: spacing.md, right: spacing.md }]}>
+        <View style={[styles.topOverlay, { top: Platform.OS === 'android' ? 44 : spacing.md, left: spacing.md, right: spacing.md }]}>
           <View style={[styles.statusChip, { backgroundColor: colors.surface + 'EE', borderColor: colors.border }]}>
             <View
               style={[

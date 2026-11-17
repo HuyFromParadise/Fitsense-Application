@@ -3,11 +3,13 @@ import { useColorScheme } from 'react-native';
 
 import { createTheme, type Theme } from '../../theme';
 
-const ThemeContext = createContext<Theme>(createTheme(false));
+// FitSense Brand Identity: Athletic Black & Electric Flame Orange (Đen - Cam)
+const ThemeContext = createContext<Theme>(createTheme(true));
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const scheme = useColorScheme();
-  const theme = useMemo(() => createTheme(scheme === 'dark'), [scheme]);
+  // Default to athletic dark mode (Đen - Cam), unless explicitly configured otherwise
+  const theme = useMemo(() => createTheme(true), [scheme]);
 
   return (
     <ThemeContext.Provider value={theme}>{children}</ThemeContext.Provider>
