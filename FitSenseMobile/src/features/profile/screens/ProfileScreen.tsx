@@ -7,6 +7,7 @@ import {
   Alert,
   TouchableOpacity,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../../app/providers/ThemeProvider';
 import { Button, Input, Card, Loading } from '../../../components/common';
 import { useAuthStore } from '../../../stores/useAuthStore';
@@ -15,6 +16,7 @@ import { NotificationSettingsScreen } from '../../notifications/screens/Notifica
 
 export function ProfileScreen() {
   const { colors, spacing, radius, typography } = useTheme();
+  const insets = useSafeAreaInsets();
   const signOut = useAuthStore(state => state.signOut);
   const { profile, loading: profileLoading, refresh, updateProfile, deleteAccount } = useProfile();
 
@@ -131,7 +133,7 @@ export function ProfileScreen() {
   const bmiInfo = getBmiCategory(currentBmi);
 
   return (
-    <ScrollView style={[styles.container, { backgroundColor: colors.background }]} contentContainerStyle={[styles.content, { padding: spacing.md }]}>
+    <ScrollView style={[styles.container, { backgroundColor: colors.background }]} contentContainerStyle={[styles.content, { padding: spacing.md, paddingTop: insets.top + spacing.md }]}>
       {/* Avatar & Header */}
       <View style={[styles.header, { marginVertical: spacing.lg }]}>
         <View style={[styles.avatarBadge, { backgroundColor: colors.primary }]}>

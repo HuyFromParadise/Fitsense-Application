@@ -18,6 +18,7 @@ export function MainTabs() {
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
+        headerShown: false,
         headerStyle: {
           backgroundColor: colors.surface,
           shadowColor: 'transparent',
