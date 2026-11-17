@@ -2,6 +2,7 @@ import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { useIsFocused, useNavigation, type NavigationProp } from '@react-navigation/native';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Linking, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle } from 'react-native-svg';
 
 import type { MainTabParamList, RootStackParamList } from '../../../app/navigation/types';
@@ -67,6 +68,7 @@ function Stat({ label, value }: { label: string; value: string }) {
 
 export function DashboardScreen() {
   const { colors, spacing, typography } = useTheme();
+  const insets = useSafeAreaInsets();
   const navigation = useNavigation<BottomTabNavigationProp<MainTabParamList>>();
   const rootNavigation = useNavigation<NavigationProp<RootStackParamList>>();
   const isFocused = useIsFocused();
@@ -150,7 +152,7 @@ export function DashboardScreen() {
 
   return (
     <ScrollView
-      contentContainerStyle={{ padding: spacing.lg, gap: spacing.lg }}
+      contentContainerStyle={{ padding: spacing.lg, paddingTop: insets.top + spacing.lg, gap: spacing.lg }}
       style={{ backgroundColor: colors.background }}>
       <View style={styles.header}>
         <Text style={[typography.heading, { color: colors.text }]}>Hoạt động hôm nay</Text>

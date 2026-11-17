@@ -10,6 +10,7 @@ import {
   Platform,
 } from 'react-native';
 import MapView, { Polyline, Marker } from 'react-native-maps';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../app/providers/ThemeProvider';
 import { Button, Card } from '../../components/common';
 import {
@@ -21,6 +22,7 @@ import {
 } from './exerciseUtils';
 import { ExerciseType } from './types';
 import { useExerciseTracking } from './useExerciseTracking';
+import Geolocation from '@react-native-community/geolocation';
 
 interface ExerciseTrackingScreenProps {
   navigation: any;
@@ -37,6 +39,7 @@ export const ExerciseTrackingScreen: React.FC<ExerciseTrackingScreenProps> = ({
   navigation,
 }) => {
   const { colors, spacing, radius, typography } = useTheme();
+  const insets = useSafeAreaInsets();
   const {
     selectedType,
     setSelectedType,
@@ -72,7 +75,7 @@ export const ExerciseTrackingScreen: React.FC<ExerciseTrackingScreenProps> = ({
           latitudeDelta: 0.005,
           longitudeDelta: 0.005,
         },
-        500
+        500,
       );
     }
   }, [routeCoords]);
@@ -105,7 +108,6 @@ export const ExerciseTrackingScreen: React.FC<ExerciseTrackingScreenProps> = ({
       useNativeDriver: false,
     }).start();
   };
-
   const handleFinishPress = () => {
     Alert.alert(
       'Kết thúc buổi tập',
@@ -118,6 +120,25 @@ export const ExerciseTrackingScreen: React.FC<ExerciseTrackingScreenProps> = ({
           onPress: finishWorkout,
         },
       ]
+    );
+  };
+
+  const goToMyCurrentLocation = () => {
+    Geolocation.getCurrentPosition(
+      position => {
+        const { latitude, longitude } = position.coords;
+        mapRef.current?.animateToRegion(
+          {
+            latitude,
+            longitude,
+            latitudeDelta: 0.005,
+            longitudeDelta: 0.005,
+          },
+          1000,
+        );
+      },
+      error => console.log(error.message),
+      { enableHighAccuracy: false, timeout: 15000, maximumAge: 10000 },
     );
   };
 
@@ -137,7 +158,7 @@ export const ExerciseTrackingScreen: React.FC<ExerciseTrackingScreenProps> = ({
           style={styles.map}
           initialRegion={DEFAULT_REGION}
           showsUserLocation
-          showsMyLocationButton
+          showsMyLocationButton={false}
         >
           {routeCoords.length > 0 && (
             <Marker
@@ -155,9 +176,39 @@ export const ExerciseTrackingScreen: React.FC<ExerciseTrackingScreenProps> = ({
           )}
         </MapView>
 
+        {/* Nút định vị vị trí hiện tại của tôi (Floating Location Button) */}
+        <TouchableOpacity
+          style={[
+            styles.myLocationBtn,
+            { backgroundColor: colors.surface, borderColor: colors.border },
+          ]}
+          activeOpacity={0.8}
+          onPress={goToMyCurrentLocation}
+          accessibilityLabel="Định vị vị trí của tôi"
+        >
+          <Text style={styles.myLocationIcon}>📍</Text>
+        </TouchableOpacity>
+
         {/* Top Bar Overlay */}
-        <View style={[styles.topOverlay, { top: spacing.md, left: spacing.md, right: spacing.md }]}>
-          <View style={[styles.statusChip, { backgroundColor: colors.surface + 'EE', borderColor: colors.border }]}>
+        <View
+          style={[
+            styles.topOverlay,
+            {
+              top: insets.top + spacing.md,
+              left: spacing.md,
+              right: spacing.md,
+            },
+          ]}
+        >
+          <View
+            style={[
+              styles.statusChip,
+              {
+                backgroundColor: colors.surface + 'EE',
+                borderColor: colors.border,
+              },
+            ]}
+          >
             <View
               style={[
                 styles.statusDot,
@@ -171,7 +222,12 @@ export const ExerciseTrackingScreen: React.FC<ExerciseTrackingScreenProps> = ({
                 },
               ]}
             />
-            <Text style={[typography.caption, { color: colors.text, fontWeight: '700' }]}>
+            <Text
+              style={[
+                typography.caption,
+                { color: colors.text, fontWeight: '700' },
+              ]}
+            >
               {status === 'IDLE'
                 ? 'Sẵn sàng'
                 : status === 'ACTIVE'
@@ -181,10 +237,21 @@ export const ExerciseTrackingScreen: React.FC<ExerciseTrackingScreenProps> = ({
           </View>
 
           <TouchableOpacity
-            style={[styles.historyBtn, { backgroundColor: colors.surface + 'EE', borderColor: colors.border }]}
+            style={[
+              styles.historyBtn,
+              {
+                backgroundColor: colors.surface + 'EE',
+                borderColor: colors.border,
+              },
+            ]}
             onPress={() => navigation.navigate('ExerciseHistory')}
           >
-            <Text style={[typography.caption, { color: colors.primary, fontWeight: '700' }]}>
+            <Text
+              style={[
+                typography.caption,
+                { color: colors.primary, fontWeight: '700' },
+              ]}
+            >
               📜 Lịch sử
             </Text>
           </TouchableOpacity>
@@ -192,11 +259,25 @@ export const ExerciseTrackingScreen: React.FC<ExerciseTrackingScreenProps> = ({
       </View>
 
       {/* Bottom Tracking Control Panel */}
-      <View style={[styles.panel, { backgroundColor: colors.surface, borderColor: colors.border, padding: spacing.md }]}>
+      <View
+        style={[
+          styles.panel,
+          {
+            backgroundColor: colors.surface,
+            borderColor: colors.border,
+            padding: spacing.md,
+          },
+        ]}
+      >
         {/* Exercise Type Selector (only when IDLE) */}
         {status === 'IDLE' && (
-          <View style={[styles.typeRow, { gap: spacing.sm, marginBottom: spacing.md }]}>
-            {(['WALKING', 'RUNNING', 'CYCLING'] as ExerciseType[]).map((t) => {
+          <View
+            style={[
+              styles.typeRow,
+              { gap: spacing.sm, marginBottom: spacing.md },
+            ]}
+          >
+            {(['WALKING', 'RUNNING', 'CYCLING'] as ExerciseType[]).map(t => {
               const meta = EXERCISE_TYPE_META[t];
               const isSelected = selectedType === t;
               return (
@@ -206,7 +287,9 @@ export const ExerciseTrackingScreen: React.FC<ExerciseTrackingScreenProps> = ({
                     styles.typePill,
                     {
                       borderColor: isSelected ? meta.color : colors.border,
-                      backgroundColor: isSelected ? meta.color + '25' : colors.surfaceAlt,
+                      backgroundColor: isSelected
+                        ? meta.color + '25'
+                        : colors.surfaceAlt,
                       borderRadius: radius.md,
                     },
                   ]}
@@ -216,7 +299,10 @@ export const ExerciseTrackingScreen: React.FC<ExerciseTrackingScreenProps> = ({
                   <Text
                     style={[
                       typography.caption,
-                      { color: isSelected ? meta.color : colors.textMuted, fontWeight: '700' },
+                      {
+                        color: isSelected ? meta.color : colors.textMuted,
+                        fontWeight: '700',
+                      },
                     ]}
                   >
                     {meta.label}
@@ -229,37 +315,125 @@ export const ExerciseTrackingScreen: React.FC<ExerciseTrackingScreenProps> = ({
 
         {/* Primary Timer */}
         <View style={[styles.timerContainer, { marginBottom: spacing.sm }]}>
-          <Text style={[typography.caption, { color: colors.textMuted, letterSpacing: 1 }]}>THỜI GIAN</Text>
-          <Text style={[styles.timerValue, { color: colors.text }]}>{formatDuration(elapsedSeconds)}</Text>
+          <Text
+            style={[
+              typography.caption,
+              { color: colors.textMuted, letterSpacing: 1 },
+            ]}
+          >
+            THỜI GIAN
+          </Text>
+          <Text style={[styles.timerValue, { color: colors.text }]}>
+            {formatDuration(elapsedSeconds)}
+          </Text>
         </View>
 
         {/* Metrics Grid */}
-        <View style={[styles.metricsGrid, { gap: spacing.sm, marginBottom: spacing.md }]}>
-          <Card style={[styles.metricCard, { backgroundColor: colors.background, padding: spacing.sm + 2, borderRadius: radius.md }]}>
-            <Text style={[typography.caption, { color: colors.textMuted, marginBottom: 2 }]}>Quãng đường</Text>
+        <View
+          style={[
+            styles.metricsGrid,
+            { gap: spacing.sm, marginBottom: spacing.md },
+          ]}
+        >
+          <Card
+            style={[
+              styles.metricCard,
+              {
+                backgroundColor: colors.background,
+                padding: spacing.sm + 2,
+                borderRadius: radius.md,
+              },
+            ]}
+          >
+            <Text
+              style={[
+                typography.caption,
+                { color: colors.textMuted, marginBottom: 2 },
+              ]}
+            >
+              Quãng đường
+            </Text>
             <Text style={[typography.heading, { color: colors.text }]}>
-              {formatDistanceKm(distanceM)} <Text style={[styles.unit, { color: colors.textMuted }]}>km</Text>
+              {formatDistanceKm(distanceM)}{' '}
+              <Text style={[styles.unit, { color: colors.textMuted }]}>km</Text>
             </Text>
           </Card>
 
-          <Card style={[styles.metricCard, { backgroundColor: colors.background, padding: spacing.sm + 2, borderRadius: radius.md }]}>
-            <Text style={[typography.caption, { color: colors.textMuted, marginBottom: 2 }]}>Pace TB</Text>
+          <Card
+            style={[
+              styles.metricCard,
+              {
+                backgroundColor: colors.background,
+                padding: spacing.sm + 2,
+                borderRadius: radius.md,
+              },
+            ]}
+          >
+            <Text
+              style={[
+                typography.caption,
+                { color: colors.textMuted, marginBottom: 2 },
+              ]}
+            >
+              Pace TB
+            </Text>
             <Text style={[typography.heading, { color: colors.text }]}>
-              {formatPace(avgPaceSecPerKm)} <Text style={[styles.unit, { color: colors.textMuted }]}>/km</Text>
+              {formatPace(avgPaceSecPerKm)}{' '}
+              <Text style={[styles.unit, { color: colors.textMuted }]}>
+                /km
+              </Text>
             </Text>
           </Card>
 
-          <Card style={[styles.metricCard, { backgroundColor: colors.background, padding: spacing.sm + 2, borderRadius: radius.md }]}>
-            <Text style={[typography.caption, { color: colors.textMuted, marginBottom: 2 }]}>Tốc độ</Text>
+          <Card
+            style={[
+              styles.metricCard,
+              {
+                backgroundColor: colors.background,
+                padding: spacing.sm + 2,
+                borderRadius: radius.md,
+              },
+            ]}
+          >
+            <Text
+              style={[
+                typography.caption,
+                { color: colors.textMuted, marginBottom: 2 },
+              ]}
+            >
+              Tốc độ
+            </Text>
             <Text style={[typography.heading, { color: colors.text }]}>
-              {formatSpeedKmh(currentSpeedMps)} <Text style={[styles.unit, { color: colors.textMuted }]}>km/h</Text>
+              {formatSpeedKmh(currentSpeedMps)}{' '}
+              <Text style={[styles.unit, { color: colors.textMuted }]}>
+                km/h
+              </Text>
             </Text>
           </Card>
 
-          <Card style={[styles.metricCard, { backgroundColor: colors.background, padding: spacing.sm + 2, borderRadius: radius.md }]}>
-            <Text style={[typography.caption, { color: colors.textMuted, marginBottom: 2 }]}>Calo</Text>
+          <Card
+            style={[
+              styles.metricCard,
+              {
+                backgroundColor: colors.background,
+                padding: spacing.sm + 2,
+                borderRadius: radius.md,
+              },
+            ]}
+          >
+            <Text
+              style={[
+                typography.caption,
+                { color: colors.textMuted, marginBottom: 2 },
+              ]}
+            >
+              Calo
+            </Text>
             <Text style={[typography.heading, { color: colors.text }]}>
-              {calories.toFixed(0)} <Text style={[styles.unit, { color: colors.textMuted }]}>kcal</Text>
+              {calories.toFixed(0)}{' '}
+              <Text style={[styles.unit, { color: colors.textMuted }]}>
+                kcal
+              </Text>
             </Text>
           </Card>
         </View>
@@ -301,7 +475,10 @@ export const ExerciseTrackingScreen: React.FC<ExerciseTrackingScreenProps> = ({
                 <Animated.View
                   style={[
                     styles.holdProgressFill,
-                    { width: holdWidthInterpolated, backgroundColor: colors.danger },
+                    {
+                      width: holdWidthInterpolated,
+                      backgroundColor: colors.danger,
+                    },
                   ]}
                 />
                 <Text style={[typography.label, styles.holdFinishText]}>
@@ -328,37 +505,104 @@ export const ExerciseTrackingScreen: React.FC<ExerciseTrackingScreenProps> = ({
             {finishedSummary && (
               <>
                 <Text style={styles.modalIcon}>🏆</Text>
-                <Text style={[typography.title, { color: colors.text, marginBottom: spacing.xs }]}>
+                <Text
+                  style={[
+                    typography.title,
+                    { color: colors.text, marginBottom: spacing.xs },
+                  ]}
+                >
                   Hoàn thành buổi tập!
                 </Text>
-                <Text style={[typography.caption, { color: colors.primary, marginBottom: spacing.md, textAlign: 'center' }]}>
+                <Text
+                  style={[
+                    typography.caption,
+                    {
+                      color: colors.primary,
+                      marginBottom: spacing.md,
+                      textAlign: 'center',
+                    },
+                  ]}
+                >
                   {finishedSummary.syncedToServer
                     ? '✅ Đã lưu và đồng bộ lên server thành công'
                     : '💾 Đã lưu cục bộ. Sẽ đồng bộ khi có kết nối mạng'}
                 </Text>
 
-                <View style={[styles.summaryRows, { gap: spacing.sm, marginVertical: spacing.md, borderColor: colors.border }]}>
+                <View
+                  style={[
+                    styles.summaryRows,
+                    {
+                      gap: spacing.sm,
+                      marginVertical: spacing.md,
+                      borderColor: colors.border,
+                    },
+                  ]}
+                >
                   <View style={styles.summaryRow}>
-                    <Text style={[typography.body, { color: colors.textMuted }]}>Quãng đường:</Text>
-                    <Text style={[typography.body, { color: colors.text, fontWeight: '700' }]}>
-                      {formatDistanceKm(finishedSummary.summary.metrics.distanceM)} km
+                    <Text
+                      style={[typography.body, { color: colors.textMuted }]}
+                    >
+                      Quãng đường:
+                    </Text>
+                    <Text
+                      style={[
+                        typography.body,
+                        { color: colors.text, fontWeight: '700' },
+                      ]}
+                    >
+                      {formatDistanceKm(
+                        finishedSummary.summary.metrics.distanceM,
+                      )}{' '}
+                      km
                     </Text>
                   </View>
                   <View style={styles.summaryRow}>
-                    <Text style={[typography.body, { color: colors.textMuted }]}>Thời gian:</Text>
-                    <Text style={[typography.body, { color: colors.text, fontWeight: '700' }]}>
-                      {formatDuration(finishedSummary.summary.metrics.durationSeconds)}
+                    <Text
+                      style={[typography.body, { color: colors.textMuted }]}
+                    >
+                      Thời gian:
+                    </Text>
+                    <Text
+                      style={[
+                        typography.body,
+                        { color: colors.text, fontWeight: '700' },
+                      ]}
+                    >
+                      {formatDuration(
+                        finishedSummary.summary.metrics.durationSeconds,
+                      )}
                     </Text>
                   </View>
                   <View style={styles.summaryRow}>
-                    <Text style={[typography.body, { color: colors.textMuted }]}>Pace trung bình:</Text>
-                    <Text style={[typography.body, { color: colors.text, fontWeight: '700' }]}>
-                      {formatPace(finishedSummary.summary.metrics.avgPaceSecPerKm)} /km
+                    <Text
+                      style={[typography.body, { color: colors.textMuted }]}
+                    >
+                      Pace trung bình:
+                    </Text>
+                    <Text
+                      style={[
+                        typography.body,
+                        { color: colors.text, fontWeight: '700' },
+                      ]}
+                    >
+                      {formatPace(
+                        finishedSummary.summary.metrics.avgPaceSecPerKm,
+                      )}{' '}
+                      /km
                     </Text>
                   </View>
                   <View style={styles.summaryRow}>
-                    <Text style={[typography.body, { color: colors.textMuted }]}>Calo tiêu thụ:</Text>
-                    <Text style={[typography.body, { color: colors.text, fontWeight: '700' }]}>
+                    <Text
+                      style={[typography.body, { color: colors.textMuted }]}
+                    >
+                      Calo tiêu thụ:
+                    </Text>
+                    <Text
+                      style={[
+                        typography.body,
+                        { color: colors.text, fontWeight: '700' },
+                      ]}
+                    >
                       {finishedSummary.summary.metrics.calories.toFixed(0)} kcal
                     </Text>
                   </View>
@@ -513,5 +757,25 @@ const styles = StyleSheet.create({
   summaryRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+  },
+  myLocationBtn: {
+    position: 'absolute',
+    right: 16,
+    bottom: 16,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    zIndex: 10,
+  },
+  myLocationIcon: {
+    fontSize: 22,
   },
 });

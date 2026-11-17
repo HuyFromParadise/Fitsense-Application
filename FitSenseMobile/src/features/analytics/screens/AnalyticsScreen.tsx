@@ -9,6 +9,7 @@ import {
   Dimensions,
 } from 'react-native';
 import { BarChart, LineChart } from 'react-native-gifted-charts';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../../app/providers/ThemeProvider';
 import { Card, EmptyState, Loading } from '../../../components/common';
 import { formatDistanceKm, formatDuration } from '../../exercise';
@@ -20,6 +21,7 @@ const SCREEN_WIDTH = Dimensions.get('window').width;
 
 export function AnalyticsScreen() {
   const { colors, spacing, radius, typography } = useTheme();
+  const insets = useSafeAreaInsets();
   const {
     mode,
     setMode,
@@ -110,7 +112,7 @@ export function AnalyticsScreen() {
   return (
     <ScrollView
       style={[styles.container, { backgroundColor: colors.background }]}
-      contentContainerStyle={[styles.content, { padding: spacing.md, gap: spacing.md }]}
+      contentContainerStyle={[styles.content, { padding: spacing.md, paddingTop: insets.top + spacing.md, gap: spacing.md }]}
       refreshControl={
         <RefreshControl
           refreshing={isRefetching}

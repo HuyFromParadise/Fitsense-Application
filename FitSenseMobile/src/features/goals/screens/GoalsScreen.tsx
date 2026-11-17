@@ -2,6 +2,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import React, { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { z } from 'zod';
 
 import { useTheme } from '../../../app/providers/ThemeProvider';
@@ -158,6 +159,7 @@ function GoalForm({
 
 export function GoalsScreen() {
   const { colors, spacing, typography } = useTheme();
+  const insets = useSafeAreaInsets();
   const daily = useTodayActivity();
   const refreshDaily = useTodayActivity(state => state.refresh);
   const { list, create, update, remove } = useGoals();
@@ -184,7 +186,7 @@ export function GoalsScreen() {
 
   return (
     <ScrollView
-      contentContainerStyle={{ padding: spacing.lg, gap: spacing.lg }}
+      contentContainerStyle={{ padding: spacing.lg, paddingTop: insets.top + spacing.lg, gap: spacing.lg }}
       style={{ backgroundColor: colors.background }}>
       <View style={styles.header}>
         <Text style={[typography.heading, { color: colors.text }]}>Mục tiêu</Text>
