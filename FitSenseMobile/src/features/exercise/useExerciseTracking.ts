@@ -294,31 +294,45 @@ export const useExerciseTracking = () => {
   };
 
   const finishWorkout = async () => {
-    if (!sessionId || !startedAtMs) return;
-
     setIsSyncing(true);
     try {
+      let currentSessionId = sessionId;
+      let currentStartedAtMs = startedAtMs;
+
+      // Fallback to active native session if React state was cleared/desynced
+      if (!currentSessionId || !currentStartedAtMs) {
+        const active = await exerciseNative.getActiveSession();
+        if (active) {
+          currentSessionId = active.sessionId;
+          currentStartedAtMs = active.startedAtMs;
+        } else {
+          setStatus('IDLE');
+          return;
+        }
+      }
+
       const endedMs = Date.now();
       const extraPause = pauseStartMs ? Math.max(0, endedMs - pauseStartMs) : 0;
       const finalPausedMs = pausedTotalMs + extraPause;
 
       const finished = await exerciseNative.finish();
-      const persistedPoints = await exerciseNative.getLocalExercisePoints(sessionId);
+      const targetId = currentSessionId || finished.sessionId;
+      const persistedPoints = await exerciseNative.getLocalExercisePoints(targetId);
       const pointsToSave = persistedPoints.length > 0 ? persistedPoints : rawPoints;
       const finalDist = Math.max(distanceM, finished.distanceM);
 
       const finalDurationSec = Math.max(
         1,
-        Math.floor((endedMs - startedAtMs - finalPausedMs) / 1000)
+        Math.floor((endedMs - currentStartedAtMs - finalPausedMs) / 1000)
       );
       const calories = calculateCalories(selectedType, finalDurationSec, weightKg);
       const avgSpeed = finalDist / finalDurationSec;
       const avgPace = finalDist > 0 ? finalDurationSec / (finalDist / 1000) : null;
 
       const synced = await uploadSessionToServer(
-        sessionId,
+        targetId,
         selectedType,
-        startedAtMs,
+        currentStartedAtMs,
         endedMs,
         finalPausedMs,
         finalDist,
@@ -330,10 +344,10 @@ export const useExerciseTracking = () => {
       setFinishedSummary({
         syncedToServer: synced,
         summary: {
-          id: sessionId,
+          id: targetId,
           type: selectedType,
           status: 'FINISHED',
-          startedAt: new Date(startedAtMs).toISOString(),
+          startedAt: new Date(currentStartedAtMs).toISOString(),
           endedAt: new Date(endedMs).toISOString(),
           pausedSeconds: Math.floor(finalPausedMs / 1000),
           metrics: {
@@ -351,7 +365,7 @@ export const useExerciseTracking = () => {
       setStartedAtMs(null);
       setPauseStartMs(null);
     } catch (err: any) {
-      Alert.alert('Lỗi kết thúc buổi tập', err.message);
+      Alert.alert('Lỗi kết thúc buổi tập', err.message || 'Không thể dừng buổi tập');
     } finally {
       setIsSyncing(false);
     }

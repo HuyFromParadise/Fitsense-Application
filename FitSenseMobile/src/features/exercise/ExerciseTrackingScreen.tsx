@@ -6,6 +6,8 @@ import {
   TouchableOpacity,
   Modal,
   Animated,
+  Alert,
+  Platform,
 } from 'react-native';
 import MapView, { Polyline, Marker } from 'react-native-maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -106,6 +108,20 @@ export const ExerciseTrackingScreen: React.FC<ExerciseTrackingScreenProps> = ({
       useNativeDriver: false,
     }).start();
   };
+  const handleFinishPress = () => {
+    Alert.alert(
+      'Kết thúc buổi tập',
+      'Bạn có chắc chắn muốn dừng và lưu buổi tập này không?',
+      [
+        { text: 'Tiếp tục tập', style: 'cancel' },
+        {
+          text: 'Kết thúc ngay',
+          style: 'destructive',
+          onPress: finishWorkout,
+        },
+      ]
+    );
+  };
 
   const goToMyCurrentLocation = () => {
     Geolocation.getCurrentPosition(
@@ -165,6 +181,19 @@ export const ExerciseTrackingScreen: React.FC<ExerciseTrackingScreenProps> = ({
           onPress={goToMyCurrentLocation}
         >
           <Text style={styles.buttonText}>📍</Text>
+        </TouchableOpacity>
+
+        {/* Nút định vị vị trí hiện tại của tôi (Floating Location Button) */}
+        <TouchableOpacity
+          style={[
+            styles.myLocationBtn,
+            { backgroundColor: colors.surface, borderColor: colors.border },
+          ]}
+          activeOpacity={0.8}
+          onPress={goToMyCurrentLocation}
+          accessibilityLabel="Định vị vị trí của tôi"
+        >
+          <Text style={styles.myLocationIcon}>📍</Text>
         </TouchableOpacity>
 
         {/* Top Bar Overlay */}
@@ -433,9 +462,10 @@ export const ExerciseTrackingScreen: React.FC<ExerciseTrackingScreenProps> = ({
                 style={styles.controlHalf}
               />
 
-              {/* Hold-for-2s Finish Button (Day 8) */}
+              {/* Hold-for-2s Finish Button with single-tap confirmation */}
               <TouchableOpacity
                 activeOpacity={0.9}
+                onPress={handleFinishPress}
                 onPressIn={startHoldFinish}
                 onPressOut={cancelHoldFinish}
                 disabled={isSyncing}
@@ -753,5 +783,25 @@ const styles = StyleSheet.create({
   summaryRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+  },
+  myLocationBtn: {
+    position: 'absolute',
+    right: 16,
+    bottom: 16,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    zIndex: 10,
+  },
+  myLocationIcon: {
+    fontSize: 22,
   },
 });
