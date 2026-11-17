@@ -8,6 +8,7 @@ import {
   Alert,
   TouchableOpacity,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../../app/providers/ThemeProvider';
 import { Card, Button, Loading } from '../../../components/common';
 import { notificationApi, NotificationSettings } from '../notificationApi';
@@ -18,6 +19,7 @@ interface NotificationSettingsScreenProps {
 
 export function NotificationSettingsScreen({ onBack }: NotificationSettingsScreenProps) {
   const { colors, spacing, radius, typography } = useTheme();
+  const insets = useSafeAreaInsets();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -80,7 +82,7 @@ export function NotificationSettingsScreen({ onBack }: NotificationSettingsScree
   return (
     <ScrollView
       style={[styles.container, { backgroundColor: colors.background }]}
-      contentContainerStyle={[styles.content, { padding: spacing.md }]}
+      contentContainerStyle={[styles.content, { padding: spacing.md, paddingTop: insets.top + spacing.md }]}
     >
       {onBack && (
         <TouchableOpacity

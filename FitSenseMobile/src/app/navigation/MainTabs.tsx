@@ -12,7 +12,7 @@ const Tab = createBottomTabNavigator<MainTabParamList>();
 
 export function MainTabs() {
   return (
-    <Tab.Navigator screenOptions={{ tabBarIcon: () => null }}>
+    <Tab.Navigator screenOptions={{ headerShown: false, tabBarIcon: () => null }}>
       <Tab.Screen name="Dashboard" component={DashboardScreen} options={{ title: 'Hôm nay' }} />
       <Tab.Screen name="Exercise" component={ExerciseScreen} options={{ title: 'Tập luyện' }} />
       <Tab.Screen name="Analytics" component={AnalyticsScreen} options={{ title: 'Thống kê' }} />
