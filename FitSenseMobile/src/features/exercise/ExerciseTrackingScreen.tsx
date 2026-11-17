@@ -175,13 +175,6 @@ export const ExerciseTrackingScreen: React.FC<ExerciseTrackingScreenProps> = ({
             />
           )}
         </MapView>
-        {/* Custom My Location Button positioned in the bottom view */}
-        <TouchableOpacity
-          style={styles.myLocationButton}
-          onPress={goToMyCurrentLocation}
-        >
-          <Text style={styles.buttonText}>📍</Text>
-        </TouchableOpacity>
 
         {/* Nút định vị vị trí hiện tại của tôi (Floating Location Button) */}
         <TouchableOpacity
@@ -649,25 +642,6 @@ const styles = StyleSheet.create({
   },
   map: {
     flex: 1,
-  },
-  myLocationButton: {
-    position: 'absolute',
-    bottom: 30, // Adjust this value to sit nicely above your bottom view or sheet
-    right: 20,
-    backgroundColor: '#ffffff',
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 5, // Android shadow
-    shadowColor: '#000', // iOS shadow
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-  },
-  buttonText: {
-    fontSize: 20,
   },
   topOverlay: {
     position: 'absolute',
