@@ -106,52 +106,6 @@ export const ExerciseTrackingScreen: React.FC<ExerciseTrackingScreenProps> = ({
     }).start();
   };
 
-  const centerOnCurrentLocation = () => {
-    if (routeCoords.length > 0 && mapRef.current) {
-      const latest = routeCoords[routeCoords.length - 1];
-      mapRef.current.animateToRegion(
-        {
-          latitude: latest.latitude,
-          longitude: latest.longitude,
-          latitudeDelta: 0.005,
-          longitudeDelta: 0.005,
-        },
-        500
-      );
-    } else {
-      try {
-        const Geolocation = require('react-native-geolocation-service').default;
-        Geolocation.getCurrentPosition(
-          (pos: any) => {
-            if (mapRef.current) {
-              mapRef.current.animateToRegion(
-                {
-                  latitude: pos.coords.latitude,
-                  longitude: pos.coords.longitude,
-                  latitudeDelta: 0.005,
-                  longitudeDelta: 0.005,
-                },
-                500
-              );
-            }
-          },
-          (err: any) => {
-            console.warn('Geolocation error:', err);
-            if (mapRef.current) {
-              mapRef.current.animateToRegion(DEFAULT_REGION, 500);
-            }
-          },
-          { enableHighAccuracy: true, timeout: 5000, maximumAge: 10000 }
-        );
-      } catch (e) {
-        console.warn('Geolocation not available:', e);
-        if (mapRef.current) {
-          mapRef.current.animateToRegion(DEFAULT_REGION, 500);
-        }
-      }
-    }
-  };
-
   const handleFinishPress = () => {
     Alert.alert(
       'Kết thúc buổi tập',
@@ -183,7 +137,7 @@ export const ExerciseTrackingScreen: React.FC<ExerciseTrackingScreenProps> = ({
           style={styles.map}
           initialRegion={DEFAULT_REGION}
           showsUserLocation
-          showsMyLocationButton={false}
+          showsMyLocationButton
         >
           {routeCoords.length > 0 && (
             <Marker
@@ -200,19 +154,6 @@ export const ExerciseTrackingScreen: React.FC<ExerciseTrackingScreenProps> = ({
             />
           )}
         </MapView>
-
-        {/* Nút định vị vị trí hiện tại của tôi (Floating Location Button) */}
-        <TouchableOpacity
-          style={[
-            styles.myLocationBtn,
-            { backgroundColor: colors.surface, borderColor: colors.border },
-          ]}
-          activeOpacity={0.8}
-          onPress={centerOnCurrentLocation}
-          accessibilityLabel="Định vị vị trí của tôi"
-        >
-          <Text style={styles.myLocationIcon}>📍</Text>
-        </TouchableOpacity>
 
         {/* Top Bar Overlay */}
         <View style={[styles.topOverlay, { top: spacing.md, left: spacing.md, right: spacing.md }]}>
@@ -572,25 +513,5 @@ const styles = StyleSheet.create({
   summaryRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-  },
-  myLocationBtn: {
-    position: 'absolute',
-    right: 16,
-    bottom: 16,
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    borderWidth: 1.5,
-    alignItems: 'center',
-    justifyContent: 'center',
-    elevation: 6,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    zIndex: 10,
-  },
-  myLocationIcon: {
-    fontSize: 22,
   },
 });
