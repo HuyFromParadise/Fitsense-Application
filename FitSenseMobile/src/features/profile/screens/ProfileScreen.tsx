@@ -9,13 +9,13 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../../app/providers/ThemeProvider';
-import { Button, Input, Card, Loading } from '../../../components/common';
+import { Button, Input, Card, Loading, ThemeSwitch } from '../../../components/common';
 import { useAuthStore } from '../../../stores/useAuthStore';
 import { useProfile } from '../useProfile';
 import { NotificationSettingsScreen } from '../../notifications/screens/NotificationSettingsScreen';
 
 export function ProfileScreen() {
-  const { colors, spacing, radius, typography } = useTheme();
+  const { colors, spacing, radius, typography, isDark } = useTheme();
   const insets = useSafeAreaInsets();
   const signOut = useAuthStore(state => state.signOut);
   const { profile, loading: profileLoading, refresh, updateProfile, deleteAccount } = useProfile();
@@ -265,6 +265,19 @@ export function ProfileScreen() {
           loading={saving}
           style={{ marginTop: spacing.sm }}
         />
+      </Card>
+
+      {/* Theme Settings (Dark/Light Switch) */}
+      <Card style={{ marginBottom: spacing.md, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+        <View style={{ flex: 1, marginRight: spacing.md }}>
+          <Text style={[typography.label, { color: colors.text }]}>
+            Giao diện {isDark ? 'Tối (Đen Cam)' : 'Sáng'}
+          </Text>
+          <Text style={[typography.caption, { color: colors.textMuted, marginTop: 2 }]}>
+            {isDark ? 'Phong cách Athletic Black & Electric Orange' : 'Giao diện nền sáng tương phản'}
+          </Text>
+        </View>
+        <ThemeSwitch />
       </Card>
 
       {/* App Settings */}

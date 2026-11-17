@@ -1,7 +1,21 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import React, { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  Alert,
+  LayoutAnimation,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  UIManager,
+  View,
+} from 'react-native';
+
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { z } from 'zod';
 
@@ -167,6 +181,10 @@ export function GoalsScreen() {
   const weekly = useWeeklyExerciseTotals(goals.some(goal => isWeekly(goal.type)));
   const [editing, setEditing] = useState<Goal | null>(null);
   const [showForm, setShowForm] = useState(false);
+
+  useEffect(() => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+  }, [showForm, goals.length]);
 
   useEffect(() => {
     refreshDaily().catch(() => {});

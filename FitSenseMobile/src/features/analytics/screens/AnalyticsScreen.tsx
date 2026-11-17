@@ -343,6 +343,9 @@ export function AnalyticsScreen() {
                     yAxisTextStyle={{ color: colors.textMuted, fontSize: 10 }}
                     xAxisLabelTextStyle={{ color: colors.textMuted, fontSize: 10 }}
                     noOfSections={4}
+                    isAnimated
+                    animationDuration={800}
+                    animateOnDataChange
                   />
                 )}
               </View>

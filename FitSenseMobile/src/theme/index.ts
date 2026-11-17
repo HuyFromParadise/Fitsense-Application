@@ -11,6 +11,9 @@ export interface Theme {
   spacing: typeof spacing;
   radius: typeof radius;
   typography: typeof typography;
+  toggleTheme?: () => void;
+  themeMode?: 'dark' | 'light' | 'system';
+  setThemeMode?: (mode: 'dark' | 'light' | 'system') => void;
 }
 
 export function createTheme(isDark: boolean): Theme {
