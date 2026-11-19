@@ -100,7 +100,7 @@ public class ActivityService {
     }
 
     private DailyActivityEntity newEntity(UUID userId, DailyActivityUpsert item) {
-        return DailyActivityEntity.builder()
+        DailyActivityEntity entity = DailyActivityEntity.builder()
                 .userId(userId)
                 .activityDate(item.activityDate())
                 .timezoneId(item.timezoneId())
@@ -110,6 +110,8 @@ public class ActivityService {
                 .activeMinutes(item.activeMinutes())
                 .clientUpdatedAt(item.updatedAt())
                 .build();
+        entity.setId(UUID.randomUUID());
+        return entity;
     }
 
     private void validateTimezone(String timezoneId) {
