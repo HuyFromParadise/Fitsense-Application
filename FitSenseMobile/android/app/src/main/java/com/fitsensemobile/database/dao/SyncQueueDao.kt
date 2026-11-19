@@ -41,13 +41,14 @@ interface SyncQueueDao {
 
     @Query(
         "UPDATE sync_queue SET state = 'SYNCED', attempts = 0, last_error = NULL, " +
-            "updated_at = :now WHERE id IN (:ids)",
+            "updated_at = :now WHERE id IN (:ids) AND state = 'SYNCING'",
     )
     suspend fun markSynced(ids: List<Long>, now: Long)
 
     @Query(
         "UPDATE sync_queue SET state = 'FAILED', attempts = :attempts, " +
-            "next_attempt_at = :nextAttemptAt, last_error = :error, updated_at = :now WHERE id = :id",
+            "next_attempt_at = :nextAttemptAt, last_error = :error, updated_at = :now " +
+            "WHERE id = :id AND state = 'SYNCING'",
     )
     suspend fun markFailed(
         id: Long,

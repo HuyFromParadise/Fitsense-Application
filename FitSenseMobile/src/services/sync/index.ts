@@ -49,12 +49,15 @@ class SyncManager {
   }
 
   /** Enqueue ngày hiện tại; native upsert giữ payload mới nhất và reset PENDING. */
-  async enqueueDailyActivity(row: StepSnapshotRow): Promise<void> {
+  async enqueueDailyActivity(row: StepSnapshotRow, triggerSync = true): Promise<void> {
     await Sync.enqueue(
       ENTITY,
       dailyActivityClientId(row),
       toDailyActivityPayload(row),
     );
+    if (triggerSync) {
+      void this.syncNow();
+    }
   }
 
   async syncNow(): Promise<{ processed: number; failed: number }> {
@@ -66,6 +69,9 @@ class SyncManager {
     }
     const net = await NetInfo.fetch();
     if (!net.isConnected) {
+      // Offline: vẫn phải cho chip biết còn bao nhiêu item đang chờ.
+      const pending = await Sync.getPendingCount().catch(() => 0);
+      useSyncStatus.getState().setStatus({ pending, syncing: false });
       return { processed: 0, failed: 0 };
     }
 
@@ -203,7 +209,7 @@ class SyncManager {
   private async backfill(): Promise<void> {
     const rows = await LocalDb.getUnsynced(BACKFILL_LIMIT);
     for (const row of rows) {
-      await this.enqueueDailyActivity(row);
+      await this.enqueueDailyActivity(row, false);
     }
   }
 

@@ -95,6 +95,13 @@ test('re-enqueueing the same day stores the newest payload', async () => {
   );
 });
 
+test('enqueueing a daily activity triggers a sync attempt', async () => {
+  await syncManager.enqueueDailyActivity(row);
+  await new Promise<void>(resolve => setTimeout(() => resolve(), 0));
+
+  expect(SyncMock.getDue).toHaveBeenCalled();
+});
+
 test('resets stuck SYNCING rows and prunes old SYNCED rows on first run', async () => {
   await syncManager.syncNow();
 
@@ -173,8 +180,11 @@ test('network errors retry later with backoff and count as pending', async () =>
 
 test('does nothing when offline or logged out', async () => {
   NetInfo.fetch.mockResolvedValue({ isConnected: false });
+  SyncMock.getPendingCount.mockResolvedValue(2);
   await syncManager.syncNow();
   expect(SyncMock.getDue).not.toHaveBeenCalled();
+  // Offline vẫn phải báo số item đang chờ để chip không nói dối.
+  expect(useSyncStatus.getState().pending).toBe(2);
 
   NetInfo.fetch.mockResolvedValue({ isConnected: true });
   authState.mockReturnValue({ isAuthenticated: false });

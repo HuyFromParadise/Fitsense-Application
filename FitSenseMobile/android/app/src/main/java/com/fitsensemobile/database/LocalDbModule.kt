@@ -118,7 +118,8 @@ class LocalDbModule(private val context: ReactApplicationContext) :
     }
 
     @ReactMethod
-    fun getLocalExercisePoints(sessionId: String, promise: Promise) {        executor.execute {
+    fun getLocalExercisePoints(sessionId: String, promise: Promise) {
+        executor.execute {
             runBlocking {
                 runCatching {
                     db.localGpsPointDao()
