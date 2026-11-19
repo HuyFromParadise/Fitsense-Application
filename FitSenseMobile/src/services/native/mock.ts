@@ -87,6 +87,9 @@ export const mockNative: FitSenseNative = {
     upsertTodayActivity: async () => {},
     getLocalExercises: async (): Promise<LocalExerciseRow[]> => [],
     getLocalExercisePoints: async () => [],
+    getUnsynced: async () => [],
+    markActivitySyncState: async () => {},
+    clearAllActivities: async () => {},
   },
   Notification: {
     ensureReady: async () => 'GRANTED',
@@ -97,10 +100,14 @@ export const mockNative: FitSenseNative = {
   },
   Sync: {
     enqueue: async () => {},
+    getDue: async () => [],
+    markSyncing: async () => {},
+    markSynced: async () => {},
+    markFailed: async () => {},
     getPendingCount: async () => 0,
-    syncNow: async () => ({ processed: 0, failed: 0 }),
-    registerHandler: async () => {},
-    getLastSyncAt: async () => null,
+    deleteSynced: async () => {},
+    resetSyncing: async () => {},
+    clearAll: async () => {},
   },
   addListener: (event, listener) => {
     const set = listeners.get(event) ?? new Set<AnyListener>();
