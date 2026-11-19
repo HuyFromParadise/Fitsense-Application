@@ -9,6 +9,7 @@ import type { MainTabParamList, RootStackParamList } from '../../../app/navigati
 import { useTheme } from '../../../app/providers/ThemeProvider';
 import { Button, Card } from '../../../components/common';
 import { LocalDb, Exercise } from '../../../services/native';
+import { syncManager } from '../../../services/sync';
 import { useSyncStatus } from '../../../stores/useSyncStatus';
 import { useTodayActivity } from '../../../stores/useTodayActivity';
 import type { ExerciseActiveSession, StepSnapshotRow } from '../../../types/native-interface';
@@ -101,6 +102,7 @@ export function DashboardScreen() {
   const persist = useCallback(
     async (row: StepSnapshotRow) => {
       await LocalDb.upsertTodayActivity(row);
+      await syncManager.enqueueDailyActivity(row).catch(() => {});
       await refreshActivity();
     },
     [refreshActivity],
@@ -128,7 +130,7 @@ export function DashboardScreen() {
       const latest = snapshotRef.current;
       if (!latest) return;
       const current = metricsRef.current;
-      LocalDb.upsertTodayActivity({
+      const row = {
         date: latest.date,
         timezoneId: deviceTimeZone(),
         steps: current.steps,
@@ -136,8 +138,11 @@ export function DashboardScreen() {
         calories: current.calories,
         activeMinutes: current.activeMinutes,
         updatedAtMs: Date.now(),
-        syncState: 'PENDING',
-      }).catch(() => {});
+        syncState: 'PENDING' as const,
+      };
+      LocalDb.upsertTodayActivity(row)
+        .then(() => syncManager.enqueueDailyActivity(row))
+        .catch(() => {});
     },
     [],
   );

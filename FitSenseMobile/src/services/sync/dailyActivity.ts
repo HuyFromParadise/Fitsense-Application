@@ -1,7 +1,7 @@
 import type { StepSnapshotRow } from '../../types/native-interface';
 
 /** Shape của một item `POST /api/activities/sync` (khớp DailyActivityUpsert backend). */
-export interface DailyActivityUpsert {
+export type DailyActivityUpsert = {
   activityDate: string;
   timezoneId: string;
   steps: number;
