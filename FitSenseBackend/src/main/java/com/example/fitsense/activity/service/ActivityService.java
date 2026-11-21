@@ -61,13 +61,14 @@ public class ActivityService {
         List<SyncItemResult> results = new ArrayList<>(request.items().size());
 
         for (DailyActivityUpsert item : request.items()) {
-            validateTimezone(item.timezoneId());
             results.add(upsert(userId, item));
         }
         return results;
     }
 
-    private SyncItemResult upsert(UUID userId, DailyActivityUpsert item) {
+    /** Dùng chung cho `/api/activities/sync` và `DailyActivitySyncProcessor` (reconcile). */
+    public SyncItemResult upsert(UUID userId, DailyActivityUpsert item) {
+        validateTimezone(item.timezoneId());
         String clientId = item.activityDate() + "|" + item.timezoneId();
         return activityRepository.findByUserIdAndActivityDate(userId, item.activityDate())
                 .map(existing -> merge(clientId, existing, item))

@@ -66,6 +66,7 @@ public class SyncService {
         }
     }
 
+    /** Chưa có row thì tạo mới (`platform = android`, `fcm_token = null`) thay vì bỏ qua. */
     private void updateDeviceSyncTime(UUID userId, String deviceId, Instant now) {
         try {
             UserDeviceEntity device = deviceRepository

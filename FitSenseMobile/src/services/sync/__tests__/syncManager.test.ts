@@ -3,7 +3,7 @@ import { useAuthStore } from '../../../stores/useAuthStore';
 import { useSyncStatus } from '../../../stores/useSyncStatus';
 import { ApiError } from '../../api/errors';
 import { syncManager } from '..';
-import { syncDailyActivities } from '../activityApi';
+import { reconcileItems } from '../syncApi';
 
 jest.mock('@react-native-community/netinfo', () => ({
   __esModule: true,
@@ -16,6 +16,7 @@ jest.mock('@react-native-community/netinfo', () => ({
 jest.mock('../../native', () => ({
   LocalDb: {
     getUnsynced: jest.fn(async () => []),
+    upsertTodayActivity: jest.fn(async () => {}),
     markActivitySyncState: jest.fn(async () => {}),
     clearAllActivities: jest.fn(async () => {}),
   },
@@ -33,7 +34,7 @@ jest.mock('../../native', () => ({
   },
 }));
 
-jest.mock('../activityApi', () => ({ syncDailyActivities: jest.fn() }));
+jest.mock('../syncApi', () => ({ reconcileItems: jest.fn() }));
 
 jest.mock('../../../stores/useAuthStore', () => ({
   useAuthStore: { getState: jest.fn(() => ({ isAuthenticated: true })) },
@@ -41,7 +42,7 @@ jest.mock('../../../stores/useAuthStore', () => ({
 
 const SyncMock = Sync as jest.Mocked<typeof Sync>;
 const LocalDbMock = LocalDb as jest.Mocked<typeof LocalDb>;
-const syncApi = syncDailyActivities as jest.MockedFunction<typeof syncDailyActivities>;
+const syncApi = reconcileItems as jest.MockedFunction<typeof reconcileItems>;
 const authState = useAuthStore.getState as jest.Mock;
 const NetInfo = jest.requireMock('@react-native-community/netinfo').default;
 
@@ -123,12 +124,12 @@ test('backfills unsynced local activity into the queue', async () => {
   );
 });
 
-test('only asks for DAILY_ACTIVITY rows, 31 at a time', async () => {
+test('only asks for DAILY_ACTIVITY rows, 500 at a time', async () => {
   SyncMock.getDue.mockResolvedValue([]);
 
   await syncManager.syncNow();
 
-  expect(SyncMock.getDue).toHaveBeenCalledWith('DAILY_ACTIVITY', 31);
+  expect(SyncMock.getDue).toHaveBeenCalledWith('DAILY_ACTIVITY', 500);
 });
 
 test('manual retry resets FAILED rows before syncing', async () => {
@@ -154,6 +155,50 @@ test('marks CREATED/DUPLICATE/CONFLICT as synced and updates local activity', as
   expect(SyncMock.markSynced).toHaveBeenCalled();
   expect(LocalDbMock.markActivitySyncState).toHaveBeenCalledWith('2026-11-16', 'SYNCED');
   expect(useSyncStatus.getState().pending).toBe(0);
+});
+
+test('sends reconcile items with entityType, clientId and parsed payload', async () => {
+  SyncMock.getDue.mockResolvedValue([queueRow(25)]);
+  syncApi.mockResolvedValue([
+    { entityType: 'DAILY_ACTIVITY', clientId: '2026-11-16|UTC', status: 'DUPLICATE' },
+  ]);
+
+  await syncManager.syncNow();
+
+  expect(syncApi).toHaveBeenCalledWith(expect.any(String), [
+    {
+      entityType: 'DAILY_ACTIVITY',
+      clientId: '2026-11-16|UTC',
+      payload: expect.objectContaining({ steps: 25 }),
+    },
+  ]);
+});
+
+test('CONFLICT overwrites local activity with the server copy', async () => {
+  SyncMock.getDue.mockResolvedValue([queueRow(25)]);
+  syncApi.mockResolvedValue([
+    {
+      entityType: 'DAILY_ACTIVITY',
+      clientId: '2026-11-16|UTC',
+      status: 'CONFLICT',
+      serverVersion: {
+        activityDate: '2026-11-16',
+        timezoneId: 'UTC',
+        steps: 900,
+        distanceM: 700,
+        calories: 40,
+        activeMinutes: 9,
+        updatedAt: '2026-11-16T10:00:00Z',
+      },
+    },
+  ]);
+
+  await syncManager.syncNow();
+
+  expect(LocalDbMock.upsertTodayActivity).toHaveBeenCalledWith(
+    expect.objectContaining({ date: '2026-11-16', steps: 900, syncState: 'SYNCED' }),
+  );
+  expect(SyncMock.markSynced).toHaveBeenCalledWith([1]);
 });
 
 test('HTTP 400 fails the batch without scheduling a retry', async () => {
