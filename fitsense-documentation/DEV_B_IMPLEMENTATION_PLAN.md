@@ -112,11 +112,11 @@ Danh sách dưới là **toàn bộ phần còn thiếu**, đối chiếu với 
 
 **F9 — Local notification + tối ưu pin (Ngày 11)**
 
-- [ ] Native `notification/NotificationModule.kt`: thay stub `scheduleDailyReminders`/`cancelDailyReminders` bằng WorkManager thật; `ensureReady`/`show`/`cancel` đã có.
-- [ ] Native `notification/DailyReminderWorker.kt` (mới): nhắc đạt bước + nhắc ít vận động theo khung giờ, chống gửi lặp.
-- [ ] Native `notification/BootReceiver.kt`: re-schedule reminder work sau reboot (cùng chỗ sửa với F5).
-- [ ] Mobile `NotificationSettingsScreen.tsx` (mới, thêm route trong `navigation/types.ts`): toggle + khung giờ + gọi module.
-- [ ] Mobile `src/features/notifications/index.ts`: lắng nghe `EXERCISE_STATE` `FINISHED` → `Notification.show`.
+- [x] Native `notification/NotificationModule.kt`: thay stub `scheduleDailyReminders`/`cancelDailyReminders` bằng WorkManager thật; `ensureReady`/`show`/`cancel` đã có.
+- [x] Native `notification/DailyReminderWorker.kt` (mới): nhắc đạt bước + nhắc ít vận động theo khung giờ, chống gửi lặp.
+- [x] Native `notification/BootReceiver.kt`: re-schedule reminder work sau reboot (cùng chỗ sửa với F5).
+- [x] Mobile `NotificationSettingsScreen.tsx` (mới, thêm route trong `navigation/types.ts`): toggle + khung giờ + gọi module.
+- [x] Mobile `src/features/notifications/index.ts`: lắng nghe `EXERCISE_STATE` `FINISHED` → `Notification.show`.
 - [ ] Đo pin 30 phút tracking + ghi tài liệu; đề xuất thay đổi GPS cho A (không tự sửa file location).
 
 **Test & tài liệu (Ngày 12–13)**
@@ -449,23 +449,23 @@ Danh sách dưới là **toàn bộ phần còn thiếu**, đối chiếu với 
 
 #### Android Native (`com.fitsensemobile.notification`)
 
-- [ ] `scheduleDailyReminders(startHour, endHour)`:
+- [x] `scheduleDailyReminders(startHour, endHour)`:
   - WorkManager periodic (~mỗi 1-2 giờ trong khung giờ) hoặc one-time tự lên lịch lại; unique work name.
   - Đọc steps hôm nay (từ `step_snapshots`/`local_activity` hoặc `StepCounterModule` logic).
   - Nhắc đạt bước: nếu chưa đạt goal (fallback 8000) vào cuối khung giờ.
   - Nhắc ít vận động: nếu không có bước mới trong ~60-90 phút trong khung giờ cho phép, tránh gửi lặp (lưu last-notified).
   - Không gửi ngoài khung giờ; không gửi nếu `POST_NOTIFICATIONS` bị từ chối.
-- [ ] `cancelDailyReminders()`: cancel unique work.
-- [ ] Thông báo hoàn thành bài tập: subscribe `EXERCISE_STATE` `FINISHED` phía JS → gọi `Notification.show` với channel `fitsense_goal`/`fitsense_activity` (không sửa `ExerciseModule` của A).
-- [ ] `BootReceiver`: re-schedule reminder work sau reboot (đã có quyền `RECEIVE_BOOT_COMPLETED`).
+- [x] `cancelDailyReminders()`: cancel unique work.
+- [x] Thông báo hoàn thành bài tập: subscribe `EXERCISE_STATE` `FINISHED` phía JS → gọi `Notification.show` với channel `fitsense_goal`/`fitsense_activity` (không sửa `ExerciseModule` của A).
+- [x] `BootReceiver`: re-schedule reminder work sau reboot (đã có quyền `RECEIVE_BOOT_COMPLETED`).
 
 #### Mobile (`src/features/notifications`)
 
-- [ ] `NotificationSettingsScreen` (route đã khai báo hoặc thêm trong tab Profile nếu chưa có route — nếu thêm route phải sửa `navigation/types.ts`, đây là file B sở hữu):
+- [x] `NotificationSettingsScreen` (route đã khai báo hoặc thêm trong tab Profile nếu chưa có route — nếu thêm route phải sửa `navigation/types.ts`, đây là file B sở hữu):
   - Bật/tắt nhắc bước chân, nhắc ít vận động; chọn khung giờ (mặc định 08:00-21:00).
   - Gọi `Notification.ensureReady()`, `scheduleDailyReminders`, `cancelDailyReminders`.
   - Trạng thái bật/tắt giữ trong Zustand (không cần persist): lịch nhắc đã nằm trong WorkManager nên vẫn sống sau restart. Nếu cần nhớ lựa chọn UI qua restart thì báo A thêm AsyncStorage (tránh tự thêm dependency).
-- [ ] Lắng nghe `EXERCISE_STATE` để hiện thông báo hoàn thành bài tập.
+- [x] Lắng nghe `EXERCISE_STATE` để hiện thông báo hoàn thành bài tập.
 
 #### Tối ưu pin
 
