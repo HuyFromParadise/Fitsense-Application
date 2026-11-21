@@ -166,12 +166,16 @@ export interface LocalExerciseRow {
   syncState: SyncQueueState;
 }
 
-/** Bảng `local_activity` — nguồn của useTodayActivity (B sở hữu, A đọc). */
+/** Bảng `local_activity` - nguồn của useTodayActivity (B sở hữu, A đọc). */
 export interface LocalDbModule {
   getTodayActivity(): Promise<StepSnapshotRow | null>;
   upsertTodayActivity(row: StepSnapshotRow): Promise<void>;
   getLocalExercises(limit: number, offset: number): Promise<LocalExerciseRow[]>;
   getLocalExercisePoints(sessionId: string): Promise<ExercisePoint[]>;
+  /** F8: mọi ngày chưa `SYNCED`, cũ nhất trước — nguồn backfill của syncManager. */
+  getUnsynced(limit: number): Promise<StepSnapshotRow[]>;
+  markActivitySyncState(date: string, state: SyncQueueState): Promise<void>;
+  clearAllActivities(): Promise<void>;
 }
 
 /** --------------------------------------------------------------- Notification */
@@ -213,12 +217,32 @@ export interface SyncHandler {
   onResult(item: SyncItem, result: SyncResult): Promise<void>;
 }
 
+/** Một row `sync_queue` đã sẵn sàng gửi (state = PENDING, next_attempt_at <= now). */
+export interface SyncQueueRow {
+  id: number;
+  entityType: SyncEntityType;
+  clientId: string;
+  /** Payload JSON đã lưu lúc enqueue. */
+  payloadJson: string;
+  attempts: number;
+  nextAttemptAtMs: number;
+}
+
 export interface SyncModule {
+  /** Upsert theo (entityType, clientId): payload mới nhất, state về PENDING. */
   enqueue(entityType: SyncEntityType, clientId: string, payload: Record<string, unknown>): Promise<void>;
+  getDue(entityType: SyncEntityType, limit: number): Promise<SyncQueueRow[]>;
+  markSyncing(ids: number[]): Promise<void>;
+  markSynced(ids: number[]): Promise<void>;
+  markFailed(id: number, attempts: number, nextAttemptAtMs: number, error: string | null): Promise<void>;
+  /** PENDING + SYNCING + FAILED (không tính SYNCED). */
   getPendingCount(): Promise<number>;
-  syncNow(): Promise<{ processed: number; failed: number }>;
-  registerHandler(entityType: SyncEntityType): Promise<void>;
-  getLastSyncAt(): Promise<number | null>;
+  deleteSynced(olderThanMs: number): Promise<void>;
+  /** Item kẹt SYNCING do app bị kill quay lại PENDING. */
+  resetSyncing(): Promise<void>;
+  /** Nút "Thử lại": FAILED -> PENDING, `next_attempt_at` = now. */
+  resetForRetry(): Promise<void>;
+  clearAll(): Promise<void>;
 }
 
 /** ------------------------------------------------------------------- Events */

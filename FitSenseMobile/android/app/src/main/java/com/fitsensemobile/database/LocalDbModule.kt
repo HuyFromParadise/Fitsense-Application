@@ -62,6 +62,45 @@ class LocalDbModule(private val context: ReactApplicationContext) :
         }
     }
 
+    /** F8: backfill nguồn cho syncManager. */
+    @ReactMethod
+    fun getUnsynced(limit: Double, promise: Promise) {
+        executor.execute {
+            runBlocking {
+                runCatching {
+                    db.localActivityDao()
+                        .getUnsynced(limit.toInt())
+                        .map { it.toWritableMap() }
+                        .toWritableArray()
+                }
+                    .onSuccess { promise.resolve(it) }
+                    .onFailure { promise.reject("DATABASE_ERROR", it.message, it) }
+            }
+        }
+    }
+
+    @ReactMethod
+    fun markActivitySyncState(date: String, state: String, promise: Promise) {
+        executor.execute {
+            runBlocking {
+                runCatching { db.localActivityDao().markSyncState(date, state) }
+                    .onSuccess { promise.resolve(null) }
+                    .onFailure { promise.reject("DATABASE_ERROR", it.message, it) }
+            }
+        }
+    }
+
+    @ReactMethod
+    fun clearAllActivities(promise: Promise) {
+        executor.execute {
+            runBlocking {
+                runCatching { db.localActivityDao().clearAll() }
+                    .onSuccess { promise.resolve(null) }
+                    .onFailure { promise.reject("DATABASE_ERROR", it.message, it) }
+            }
+        }
+    }
+
     @ReactMethod
     fun getLocalExercises(limit: Double, offset: Double, promise: Promise) {
         executor.execute {

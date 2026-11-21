@@ -9,8 +9,11 @@ import React, { useMemo } from 'react';
 
 import { Loading } from '../../components/common';
 import { SensorMonitorScreen } from '../../features/sensors/screens/SensorMonitorScreen';
+import { SyncGate } from '../../features/sync/SyncGate';
+import { setupExerciseFinishedNotification } from '../../features/notifications';
 import { useAuthStore } from '../../stores/useAuthStore';
 import { useTheme } from '../providers/ThemeProvider';
+import { useEffect } from 'react';
 import { AuthStack } from './AuthStack';
 import { MainTabs } from './MainTabs';
 import type { RootStackParamList } from './types';
@@ -38,12 +41,19 @@ export function RootNavigator() {
     };
   }, [theme]);
 
+  // Setup exercise finished notification listener once on mount
+  useEffect(() => {
+    const cleanup = setupExerciseFinishedNotification();
+    return cleanup;
+  }, []);
+
   if (initializing) {
     return <Loading message="Đang kiểm tra đăng nhập..." />;
   }
 
   return (
     <NavigationContainer theme={navigationTheme}>
+      <SyncGate />
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {isAuthenticated ? (
           <Stack.Screen name="Main" component={MainTabs} />
