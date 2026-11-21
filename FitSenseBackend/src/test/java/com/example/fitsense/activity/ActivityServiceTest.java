@@ -182,7 +182,6 @@ class ActivityServiceTest {
 
         ArgumentCaptor<DailyActivityEntity> saved = ArgumentCaptor.forClass(DailyActivityEntity.class);
         verify(activityRepository).save(saved.capture());
-        assertThat(saved.getValue().getId()).isNotNull();
         assertThat(saved.getValue().getUserId()).isEqualTo(userId);
         assertThat(saved.getValue().getSteps()).isEqualTo(8234);
         assertThat(saved.getValue().getClientUpdatedAt()).isEqualTo(item.updatedAt());

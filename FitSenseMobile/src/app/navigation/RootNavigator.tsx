@@ -9,7 +9,6 @@ import React, { useMemo } from 'react';
 
 import { Loading } from '../../components/common';
 import { SensorMonitorScreen } from '../../features/sensors/screens/SensorMonitorScreen';
-import { SyncGate } from '../../features/sync/SyncGate';
 import { useAuthStore } from '../../stores/useAuthStore';
 import { useTheme } from '../providers/ThemeProvider';
 import { AuthStack } from './AuthStack';
@@ -45,7 +44,6 @@ export function RootNavigator() {
 
   return (
     <NavigationContainer theme={navigationTheme}>
-      <SyncGate />
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {isAuthenticated ? (
           <Stack.Screen name="Main" component={MainTabs} />
