@@ -14,7 +14,7 @@ const isAndroidEmulator =
 export const API_BASE_URL = __DEV__
   ? isAndroidEmulator
     ? 'http://10.0.2.2:8080'
-    : 'http://10.60.243.158:8080'
+    : 'http://192.168.1.43:8080'
   : 'https://api.fitsense.app';
 
 export const API_TIMEOUT_MS = 6_000;
