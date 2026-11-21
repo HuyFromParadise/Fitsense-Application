@@ -4,6 +4,7 @@ interface SyncStatusState {
   pending: number;
   syncing: boolean;
   lastSyncAtMs: number | null;
+  // shortcut: chỉ giữ trong RAM — sau restart item FAILED vẫn hiện "chờ đồng bộ" nhưng mất lý do; persist khi có AsyncStorage.
   lastError: string | null;
   setStatus: (status: Partial<Omit<SyncStatusState, 'setStatus' | 'reset'>>) => void;
   reset: () => void;

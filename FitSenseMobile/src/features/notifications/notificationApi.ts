@@ -1,6 +1,9 @@
 import { Platform } from 'react-native';
 import { apiClient } from '../../services/api/client';
 import { getFcmToken } from '../../services/firebase';
+import { getDeviceId } from '../../utils/deviceId';
+
+export { getDeviceId } from '../../utils/deviceId';
 
 export interface DeviceRegistrationRequest {
   deviceId: string;
@@ -12,15 +15,6 @@ export interface NotificationSettings {
   weeklyReportEnabled: boolean;
   workoutRemindersEnabled: boolean;
   goalAchievementsEnabled: boolean;
-}
-
-let cachedDeviceId: string | null = null;
-
-export function getDeviceId(): string {
-  if (!cachedDeviceId) {
-    cachedDeviceId = `${Platform.OS}-${Math.random().toString(36).substring(2, 10)}`;
-  }
-  return cachedDeviceId;
 }
 
 export const notificationApi = {

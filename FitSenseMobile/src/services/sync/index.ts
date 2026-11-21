@@ -9,16 +9,16 @@ import type {
   SyncItem,
   SyncResult,
 } from '../../types/native-interface';
+import { getDeviceId } from '../../utils/deviceId';
 import { toApiError } from '../api/errors';
 import { LocalDb, Sync } from '../native';
-import { syncDailyActivities, type SyncItemResult } from './activityApi';
 import { backoffDelayMs } from './backoff';
 import { dailyActivityClientId, toDailyActivityPayload } from './dailyActivity';
+import { reconcileItems, type SyncItemResult } from './syncApi';
 
 const ENTITY: SyncEntityType = 'DAILY_ACTIVITY';
-// `/api/activities/sync` giới hạn 31 item/request (Day 8). Đổi sang `/api/sync/reconcile`
-// (Day 9) thì mới nâng lên 500.
-const BATCH_SIZE = 31;
+// `/api/sync/reconcile` cho tối đa 500 item/request.
+const BATCH_SIZE = 500;
 const MAX_BATCHES = 10;
 const BACKFILL_LIMIT = 100;
 const SYNCED_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
@@ -111,8 +111,13 @@ class SyncManager {
 
         let results: SyncItemResult[];
         try {
-          results = await syncDailyActivities(
-            due.map(row => JSON.parse(row.payloadJson)),
+          results = await reconcileItems(
+            getDeviceId(),
+            due.map(row => ({
+              entityType: row.entityType,
+              clientId: row.clientId,
+              payload: JSON.parse(row.payloadJson) as Record<string, unknown>,
+            })),
           );
         } catch (error) {
           const apiError = toApiError(error);
@@ -145,6 +150,10 @@ class SyncManager {
           const date = row.clientId.split('|')[0];
 
           if (result && result.status !== 'REJECTED') {
+            if (result.status === 'CONFLICT') {
+              // Server mới hơn: ghi đè local bằng serverVersion trước khi coi là đã sync.
+              await this.applyServerVersion(result.serverVersion);
+            }
             syncedIds.push(row.id);
             await LocalDb.markActivitySyncState(date, 'SYNCED');
             continue;
@@ -212,6 +221,24 @@ class SyncManager {
     await LocalDb.clearAllActivities();
     await Sync.clearAll();
     useSyncStatus.getState().reset();
+  }
+
+  /** `serverVersion` là daily summary server đã thắng (LWW) trong response CONFLICT. */
+  private async applyServerVersion(serverVersion: Record<string, unknown> | undefined): Promise<void> {
+    if (!serverVersion || typeof serverVersion.activityDate !== 'string') {
+      return;
+    }
+    const updatedAt = Date.parse(String(serverVersion.updatedAt));
+    await LocalDb.upsertTodayActivity({
+      date: serverVersion.activityDate,
+      timezoneId: String(serverVersion.timezoneId ?? 'UTC'),
+      steps: Number(serverVersion.steps ?? 0),
+      distanceM: Number(serverVersion.distanceM ?? 0),
+      calories: Number(serverVersion.calories ?? 0),
+      activeMinutes: Number(serverVersion.activeMinutes ?? 0),
+      updatedAtMs: Number.isNaN(updatedAt) ? Date.now() : updatedAt,
+      syncState: 'SYNCED',
+    });
   }
 
   private async backfill(): Promise<void> {
