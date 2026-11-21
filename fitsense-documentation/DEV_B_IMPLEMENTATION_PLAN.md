@@ -432,16 +432,16 @@ Danh sách dưới là **toàn bộ phần còn thiếu**, đối chiếu với 
 
 ### NGÀY 10: [F8] SYNC HOÀN THIỆN & END-TO-END
 
-- [ ] Kịch bản test E2E (ghi vào `BUGS.md`/tài liệu test):
+- [x] Kịch bản test E2E (ghi vào `BUGS.md`/tài liệu test): → `fitsense-documentation/TESTING.md` (chưa chạy trên máy thật).
   1. Offline → ghi daily activity → online → sync → đúng 1 bản.
   2. Gọi sync 2 lần liên tiếp.
   3. Mất mạng giữa lúc sync → item còn `PENDING`/`FAILED`, retry đúng.
   4. Kill app giữa lúc sync → mở lại, sync tiếp, không nhân đôi.
   5. Server trả `REJECTED` → item `FAILED`, không retry vô hạn.
   6. Server trả `CONFLICT` → local reconcile theo `serverVersion`.
-- [ ] Xử lý `FAILED`: hiển thị last error trong `useSyncStatus`, cho phép "Thử lại" thủ công (reset state về PENDING + `next_attempt_at = now`).
-- [ ] Kiểm thử reboot cho Steps (lặp lại ngày 3 trên máy thật, ghi kết quả).
-- [ ] **Tiêu chí nghiệm thu:** AC-10, AC-11, AC-12 đạt (offline ghi được, sync đúng, không trùng); Sync chip phản ánh đúng trạng thái.
+- [x] Xử lý `FAILED`: hiển thị last error trong `useSyncStatus`, cho phép "Thử lại" thủ công (reset state về PENDING + `next_attempt_at = now`). *(làm ở Day 8; chip Day 10 thêm trạng thái "Đang đồng bộ…")*
+- [ ] Kiểm thử reboot cho Steps (lặp lại ngày 3 trên máy thật, ghi kết quả). — chưa có máy thật trong phiên này.
+- [ ] **Tiêu chí nghiệm thu:** AC-10, AC-11, AC-12 đạt (offline ghi được, sync đúng, không trùng); Sync chip phản ánh đúng trạng thái. — phần logic có test tự động; AC cần chạy máy thật.
 
 ---
 

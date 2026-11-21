@@ -152,8 +152,11 @@ export function DashboardScreen() {
   };
 
   const permissionBlocked = status === 'PERMISSION_DENIED' || permission !== 'GRANTED';
-  const syncLabel =
-    syncStatus.pending > 0 ? `${syncStatus.pending} chờ đồng bộ` : 'Đã đồng bộ';
+  const syncLabel = syncStatus.syncing
+    ? 'Đang đồng bộ…'
+    : syncStatus.pending > 0
+      ? `${syncStatus.pending} chờ đồng bộ`
+      : 'Đã đồng bộ';
 
   return (
     <ScrollView

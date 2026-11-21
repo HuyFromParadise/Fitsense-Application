@@ -217,6 +217,42 @@ test('HTTP 400 fails the batch without scheduling a retry', async () => {
   expect(jest.getTimerCount()).toBe(0);
 });
 
+test('REJECTED item fails permanently without scheduling a retry', async () => {
+  jest.useFakeTimers();
+  SyncMock.getDue.mockResolvedValueOnce([queueRow(25)]).mockResolvedValue([]);
+  syncApi.mockResolvedValue([
+    {
+      entityType: 'DAILY_ACTIVITY',
+      clientId: '2026-11-16|UTC',
+      status: 'REJECTED',
+      reason: 'steps âm',
+    },
+  ]);
+
+  await syncManager.syncNow();
+
+  expect(SyncMock.markFailed).toHaveBeenCalledWith(
+    1,
+    1,
+    Number.MAX_SAFE_INTEGER,
+    'steps âm',
+  );
+  expect(jest.getTimerCount()).toBe(0);
+  expect(useSyncStatus.getState().lastError).toBe('steps âm');
+});
+
+test('a second sync after success sends no further requests', async () => {
+  SyncMock.getDue.mockResolvedValueOnce([queueRow(25)]).mockResolvedValue([]);
+  syncApi.mockResolvedValue([
+    { entityType: 'DAILY_ACTIVITY', clientId: '2026-11-16|UTC', status: 'CREATED' },
+  ]);
+
+  await syncManager.syncNow();
+  await syncManager.syncNow();
+
+  expect(syncApi).toHaveBeenCalledTimes(1);
+});
+
 test('network errors retry later with backoff and count as pending', async () => {
   jest.useFakeTimers();
   jest.setSystemTime(1_000_000);
