@@ -4,6 +4,7 @@ import android.Manifest
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
+import android.content.SharedPreferences
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import com.facebook.react.bridge.Promise
@@ -12,8 +13,11 @@ import com.facebook.react.bridge.ReactContextBaseJavaModule
 import com.facebook.react.bridge.ReactMethod
 import com.facebook.react.bridge.ReadableMap
 import com.fitsensemobile.common.PermissionHelper
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
-/** Chủ: B (F9). Stub ngày 1: tạo channel + hiển thị notification cục bộ. */
+/** Chủ: B (F9). WorkManager nhắc bước chân + nhắc ít vận động trong khung giờ. */
 class NotificationModule(private val context: ReactApplicationContext) :
     ReactContextBaseJavaModule(context) {
 
@@ -63,12 +67,36 @@ class NotificationModule(private val context: ReactApplicationContext) :
 
     @ReactMethod
     fun scheduleDailyReminders(startHour: Double, endHour: Double, promise: Promise) {
-        // Khung: WorkManager sẽ được nối ở F9.
+        // Validate input
+        val start = startHour.toInt()
+        val end = endHour.toInt()
+        if (start < 0 || start > 23 || end < 0 || end > 23 || start >= end) {
+            promise.reject("INVALID_ARGUMENT", "startHour (0-23) must be < endHour (0-23)")
+            return
+        }
+
+        // Lưu khung giờ vào SharedPreferences để Worker đọc
+        val prefs = context.getSharedPreferences(DailyReminderWorker.PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit()
+            .putInt(DailyReminderWorker.PREF_START_HOUR, start)
+            .putInt(DailyReminderWorker.PREF_END_HOUR, end)
+            .apply()
+
+        // Xóa dedupe keys cũ để có thể gửi lại khi thay đổi cài đặt
+        val today = com.fitsensemobile.common.TimeUtils.todayIso()
+        prefs.edit()
+            .remove("step_goal_$today")
+            .remove("inactivity_$today")
+            .apply()
+
+        // Đăng ký WorkManager periodic (~1h/lần)
+        DailyReminderWorker.enqueuePeriodic(context)
         promise.resolve(null)
     }
 
     @ReactMethod
     fun cancelDailyReminders(promise: Promise) {
+        DailyReminderWorker.cancel(context)
         promise.resolve(null)
     }
 
