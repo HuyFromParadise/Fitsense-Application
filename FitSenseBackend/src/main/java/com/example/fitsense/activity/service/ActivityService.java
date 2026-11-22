@@ -9,6 +9,9 @@ import com.example.fitsense.common.exception.ApiException;
 import com.example.fitsense.common.exception.ErrorCode;
 import com.example.fitsense.common.response.PageResponse;
 import com.example.fitsense.common.security.CurrentUser;
+import com.example.fitsense.goal.entity.GoalEntity;
+import com.example.fitsense.goal.repository.GoalRepository;
+import com.example.fitsense.notification.service.NotificationService;
 import com.example.fitsense.sync.dto.SyncEntityType;
 import com.example.fitsense.sync.dto.SyncItemResult;
 import com.example.fitsense.sync.dto.SyncStatus;
@@ -19,12 +22,14 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ActivityService {
@@ -33,6 +38,8 @@ public class ActivityService {
 
     private final DailyActivityRepository activityRepository;
     private final UserService userService;
+    private final GoalRepository goalRepository;
+    private final NotificationService notificationService;
 
     @Transactional(readOnly = true)
     public DailyActivityResponse getDaily(CurrentUser authUser, LocalDate date, String timezoneId) {
@@ -71,15 +78,17 @@ public class ActivityService {
         validateTimezone(item.timezoneId());
         String clientId = item.activityDate() + "|" + item.timezoneId();
         return activityRepository.findByUserIdAndActivityDate(userId, item.activityDate())
-                .map(existing -> merge(clientId, existing, item))
+                .map(existing -> merge(userId, clientId, existing, item))
                 .orElseGet(() -> {
                     activityRepository.save(newEntity(userId, item));
+                    notifyCrossedDailyGoals(userId, item.activityDate(), 0, 0.0, 0.0, item);
                     return SyncItemResult.of(
                             SyncEntityType.DAILY_ACTIVITY, clientId, SyncStatus.CREATED, "Inserted");
                 });
     }
 
-    private SyncItemResult merge(String clientId, DailyActivityEntity existing, DailyActivityUpsert item) {
+    private SyncItemResult merge(
+            UUID userId, String clientId, DailyActivityEntity existing, DailyActivityUpsert item) {
         int order = item.updatedAt().compareTo(existing.getClientUpdatedAt());
         if (order < 0) {
             return SyncItemResult.conflict(
@@ -89,6 +98,9 @@ public class ActivityService {
             return SyncItemResult.of(
                     SyncEntityType.DAILY_ACTIVITY, clientId, SyncStatus.DUPLICATE, "Already up to date");
         }
+        int prevSteps = existing.getSteps();
+        double prevDistanceM = existing.getDistanceM();
+        double prevCalories = existing.getCalories();
         existing.setTimezoneId(item.timezoneId());
         existing.setSteps(item.steps());
         existing.setDistanceM(item.distanceM());
@@ -96,8 +108,36 @@ public class ActivityService {
         existing.setActiveMinutes(item.activeMinutes());
         existing.setClientUpdatedAt(item.updatedAt());
         activityRepository.save(existing);
+        notifyCrossedDailyGoals(
+                userId, item.activityDate(), prevSteps, prevDistanceM, prevCalories, item);
         return SyncItemResult.of(
                 SyncEntityType.DAILY_ACTIVITY, clientId, SyncStatus.CREATED, "Updated");
+    }
+
+    private void notifyCrossedDailyGoals(
+            UUID userId,
+            LocalDate date,
+            int prevSteps,
+            double prevDistanceM,
+            double prevCalories,
+            DailyActivityUpsert current) {
+        try {
+            List<GoalEntity> goals = goalRepository.findActive(userId, date);
+            for (GoalEntity goal : goals) {
+                double target = goal.getTargetValue();
+                boolean crossed = switch (goal.getType()) {
+                    case DAILY_STEPS -> prevSteps < target && current.steps() >= target;
+                    case DAILY_DISTANCE -> prevDistanceM < target && current.distanceM() >= target;
+                    case DAILY_CALORIES -> prevCalories < target && current.calories() >= target;
+                    default -> false;
+                };
+                if (crossed) {
+                    notificationService.notifyGoalAchieved(userId, goal.getType().name(), target);
+                }
+            }
+        } catch (Exception ex) {
+            log.warn("Failed to trigger goal achievement notification for user {}: {}", userId, ex.getMessage());
+        }
     }
 
     private DailyActivityEntity newEntity(UUID userId, DailyActivityUpsert item) {

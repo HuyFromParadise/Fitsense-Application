@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import { useProfile } from '../profile';
+import { syncManager } from '../../services/sync';
+import { toExerciseCreatePayload } from '../../services/sync/exerciseSync';
 import { exerciseApi } from './exerciseApi';
 import { exerciseNative } from './exerciseNative';
 import { calculateCalories } from './exerciseUtils';
@@ -10,7 +12,6 @@ import {
   ExerciseStatus,
   ExerciseSummary,
   ExerciseType,
-  GpsPoint,
   NativeExercisePoint,
 } from './types';
 
@@ -45,17 +46,6 @@ export const useExerciseTracking = () => {
 
   const recoveryCheckedRef = useRef(false);
 
-  const mapToApiPoints = (points: NativeExercisePoint[]): GpsPoint[] =>
-    points.map((p) => ({
-      seq: p.seq,
-      latitude: p.latitude,
-      longitude: p.longitude,
-      altitudeM: p.altitudeM,
-      speedMps: p.speedMps,
-      accuracyM: p.accuracyM,
-      recordedAt: new Date(p.recordedAtMs).toISOString(),
-    }));
-
   const uploadSessionToServer = useCallback(
     async (
       id: string,
@@ -68,32 +58,43 @@ export const useExerciseTracking = () => {
       kcal: number,
       points: NativeExercisePoint[]
     ): Promise<boolean> => {
-      try {
-        const avgSpeed = durSec > 0 ? distM / durSec : 0;
-        const avgPace = distM > 0 ? durSec / (distM / 1000) : null;
-
-        await exerciseApi.createExercise({
+      const payload = toExerciseCreatePayload(
+        {
           id,
           type,
           status: 'FINISHED',
-          startedAt: new Date(startedMs).toISOString(),
-          endedAt: new Date(endedMs).toISOString(),
-          pausedSeconds: Math.floor(pausedMs / 1000),
-          gpsPoints: mapToApiPoints(points),
-          metrics: {
-            distanceM: Math.round(distM * 100) / 100,
-            durationSeconds: durSec,
-            avgPaceSecPerKm: avgPace,
-            avgSpeedMps: avgSpeed,
-            calories: kcal,
-          },
+          startedAtMs: startedMs,
+          endedAtMs: endedMs,
+          pausedTotalMs: pausedMs,
+          pointCount: points.length,
+          distanceM: distM,
+          durationSeconds: durSec,
+          calories: kcal,
+          updatedAtMs: endedMs,
+          syncState: 'PENDING',
+        },
+        points,
+      );
+      try {
+        await exerciseApi.createExercise({
+          id: payload.id,
+          type: payload.type,
+          status: payload.status,
+          startedAt: payload.startedAt,
+          endedAt: payload.endedAt,
+          pausedSeconds: payload.pausedSeconds,
+          gpsPoints: payload.gpsPoints,
+          metrics: payload.metrics,
         });
         await exerciseNative.markSessionSynced(id);
         queryClient.invalidateQueries({ queryKey: ['exercises'] });
         queryClient.invalidateQueries({ queryKey: ['analytics'] });
+        queryClient.invalidateQueries({ queryKey: ['goals'] });
         return true;
       } catch (err) {
-        console.warn('Offline or upload failed; session remains PENDING in local SQLite:', err);
+        console.warn('Offline or upload failed; queueing session in SyncQueue:', err);
+        await syncManager.enqueueExercisePayload(payload, false).catch(() => {});
+        queryClient.invalidateQueries({ queryKey: ['goals'] });
         return false;
       }
     },

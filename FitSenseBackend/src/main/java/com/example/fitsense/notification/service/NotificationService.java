@@ -5,20 +5,24 @@ import com.example.fitsense.common.exception.ErrorCode;
 import com.example.fitsense.common.security.CurrentUser;
 import com.example.fitsense.notification.dto.DeviceRegistrationRequest;
 import com.example.fitsense.notification.dto.NotificationSettingsDto;
+import com.example.fitsense.notification.entity.NotificationSettingsEntity;
 import com.example.fitsense.notification.entity.UserDeviceEntity;
+import com.example.fitsense.notification.repository.NotificationSettingsRepository;
 import com.example.fitsense.notification.repository.UserDeviceRepository;
 import com.example.fitsense.user.entity.UserEntity;
 import com.example.fitsense.user.repository.UserRepository;
+import com.google.cloud.firestore.Firestore;
 import com.google.firebase.FirebaseApp;
+import com.google.firebase.cloud.FirestoreClient;
 import com.google.firebase.messaging.FirebaseMessaging;
 import com.google.firebase.messaging.Message;
 import com.google.firebase.messaging.Notification;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -31,12 +35,13 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class NotificationService {
 
+    private static final String DEFAULT_QUIET_START = "22:00";
+    private static final String DEFAULT_QUIET_END = "07:00";
+
     private final UserDeviceRepository userDeviceRepository;
     private final UserRepository userRepository;
+    private final NotificationSettingsRepository settingsRepository;
     private final JdbcTemplate jdbcTemplate;
-
-    // In-memory user notification preferences (synced to defaults)
-    private final Map<UUID, NotificationSettingsDto> userSettingsMap = new ConcurrentHashMap<>();
 
     @Transactional
     public void registerDevice(CurrentUser authUser, DeviceRegistrationRequest request) {
@@ -61,24 +66,46 @@ public class NotificationService {
         log.info("Registered device {} for user {}", request.getDeviceId(), user.getId());
     }
 
+    @Transactional(readOnly = true)
     public NotificationSettingsDto getSettings(CurrentUser authUser) {
         UserEntity user = userRepository.findByFirebaseUid(authUser.uid())
                 .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND, "User not found"));
 
-        return userSettingsMap.computeIfAbsent(user.getId(), k -> NotificationSettingsDto.builder()
-                .weeklyReportEnabled(true)
-                .workoutRemindersEnabled(true)
-                .goalAchievementsEnabled(true)
-                .build());
+        return settingsRepository.findById(user.getId())
+                .map(this::toDto)
+                .orElseGet(this::defaultDto);
     }
 
+    @Transactional
     public NotificationSettingsDto updateSettings(CurrentUser authUser, NotificationSettingsDto settings) {
         UserEntity user = userRepository.findByFirebaseUid(authUser.uid())
                 .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND, "User not found"));
 
-        userSettingsMap.put(user.getId(), settings);
+        NotificationSettingsEntity entity = settingsRepository.findById(user.getId())
+                .orElseGet(() -> NotificationSettingsEntity.builder()
+                        .userId(user.getId())
+                        .quietHoursStart(DEFAULT_QUIET_START)
+                        .quietHoursEnd(DEFAULT_QUIET_END)
+                        .build());
+
+        entity.setWeeklyReportEnabled(settings.isWeeklyReportEnabled());
+        entity.setWorkoutRemindersEnabled(settings.isWorkoutRemindersEnabled());
+        entity.setGoalAchievementsEnabled(settings.isGoalAchievementsEnabled());
+        if (settings.getQuietHoursStart() != null && !settings.getQuietHoursStart().isBlank()) {
+            entity.setQuietHoursStart(settings.getQuietHoursStart());
+        } else if (entity.getQuietHoursStart() == null) {
+            entity.setQuietHoursStart(DEFAULT_QUIET_START);
+        }
+        if (settings.getQuietHoursEnd() != null && !settings.getQuietHoursEnd().isBlank()) {
+            entity.setQuietHoursEnd(settings.getQuietHoursEnd());
+        } else if (entity.getQuietHoursEnd() == null) {
+            entity.setQuietHoursEnd(DEFAULT_QUIET_END);
+        }
+
+        NotificationSettingsEntity saved = settingsRepository.save(entity);
+        syncSettingsToFirestore(authUser.uid(), saved);
         log.info("Updated notification settings for user {}", user.getId());
-        return settings;
+        return toDto(saved);
     }
 
     public int sendPushNotification(UUID userId, String title, String body, Map<String, String> dataPayload) {
@@ -123,9 +150,10 @@ public class NotificationService {
     }
 
     public void notifyGoalAchieved(UUID userId, String goalType, double targetValue) {
-        NotificationSettingsDto settings = userSettingsMap.getOrDefault(userId,
-                NotificationSettingsDto.builder().goalAchievementsEnabled(true).build());
-        if (!settings.isGoalAchievementsEnabled()) return;
+        boolean enabled = settingsRepository.findById(userId)
+                .map(NotificationSettingsEntity::isGoalAchievementsEnabled)
+                .orElse(true);
+        if (!enabled) return;
 
         String title = "🎉 Mục tiêu hoàn thành!";
         String body = String.format("Chúc mừng bạn đã hoàn thành mục tiêu %s với chỉ số %.0f!", goalType, targetValue);
@@ -145,9 +173,10 @@ public class NotificationService {
         int sentReports = 0;
 
         for (UserEntity user : users) {
-            NotificationSettingsDto settings = userSettingsMap.getOrDefault(user.getId(),
-                    NotificationSettingsDto.builder().weeklyReportEnabled(true).build());
-            if (!settings.isWeeklyReportEnabled()) continue;
+            boolean weeklyEnabled = settingsRepository.findById(user.getId())
+                    .map(NotificationSettingsEntity::isWeeklyReportEnabled)
+                    .orElse(true);
+            if (!weeklyEnabled) continue;
 
             try {
                 // Sum steps & distance from daily_activities for past 7 days
@@ -179,5 +208,48 @@ public class NotificationService {
 
         log.info("Finished automated weekly report dispatch. Sent {} reports.", sentReports);
         return sentReports;
+    }
+
+    private NotificationSettingsDto toDto(NotificationSettingsEntity entity) {
+        return NotificationSettingsDto.builder()
+                .weeklyReportEnabled(entity.isWeeklyReportEnabled())
+                .workoutRemindersEnabled(entity.isWorkoutRemindersEnabled())
+                .goalAchievementsEnabled(entity.isGoalAchievementsEnabled())
+                .quietHoursStart(entity.getQuietHoursStart())
+                .quietHoursEnd(entity.getQuietHoursEnd())
+                .build();
+    }
+
+    private NotificationSettingsDto defaultDto() {
+        return NotificationSettingsDto.builder()
+                .weeklyReportEnabled(true)
+                .workoutRemindersEnabled(true)
+                .goalAchievementsEnabled(true)
+                .quietHoursStart(DEFAULT_QUIET_START)
+                .quietHoursEnd(DEFAULT_QUIET_END)
+                .build();
+    }
+
+    private void syncSettingsToFirestore(String firebaseUid, NotificationSettingsEntity entity) {
+        if (FirebaseApp.getApps().isEmpty()) {
+            return;
+        }
+        try {
+            Firestore firestore = FirestoreClient.getFirestore();
+            Map<String, Object> payload = new HashMap<>();
+            payload.put("weeklyReportEnabled", entity.isWeeklyReportEnabled());
+            payload.put("workoutRemindersEnabled", entity.isWorkoutRemindersEnabled());
+            payload.put("goalAchievementsEnabled", entity.isGoalAchievementsEnabled());
+            payload.put("quietHoursStart", entity.getQuietHoursStart());
+            payload.put("quietHoursEnd", entity.getQuietHoursEnd());
+
+            firestore.collection("users")
+                    .document(firebaseUid)
+                    .collection("preferences")
+                    .document("settings")
+                    .set(payload);
+        } catch (Exception e) {
+            log.warn("Could not mirror notification settings to Firestore for {}: {}", firebaseUid, e.getMessage());
+        }
     }
 }

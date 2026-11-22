@@ -5,15 +5,19 @@ import {
   type Theme as NavigationTheme,
 } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo } from 'react';
 
 import { Loading } from '../../components/common';
 import { SensorMonitorScreen } from '../../features/sensors/screens/SensorMonitorScreen';
 import { SyncGate } from '../../features/sync/SyncGate';
-import { setupExerciseFinishedNotification } from '../../features/notifications';
+import {
+  setupExerciseFinishedNotification,
+  setupForegroundFcmNotification,
+  setupPushTokenSync,
+} from '../../features/notifications';
+import { notificationApi } from '../../features/notifications/notificationApi';
 import { useAuthStore } from '../../stores/useAuthStore';
 import { useTheme } from '../providers/ThemeProvider';
-import { useEffect } from 'react';
 import { AuthStack } from './AuthStack';
 import { MainTabs } from './MainTabs';
 import type { RootStackParamList } from './types';
@@ -41,11 +45,22 @@ export function RootNavigator() {
     };
   }, [theme]);
 
-  // Setup exercise finished notification listener once on mount
+  // Setup exercise finished + foreground FCM notification listeners once on mount
   useEffect(() => {
-    const cleanup = setupExerciseFinishedNotification();
-    return cleanup;
+    const cleanExercise = setupExerciseFinishedNotification();
+    const cleanForegroundFcm = setupForegroundFcmNotification();
+    return () => {
+      cleanExercise();
+      cleanForegroundFcm();
+    };
   }, []);
+
+  // Automatically register device FCM token and listen for token refresh while signed in
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    notificationApi.registerDevice().catch(() => {});
+    return setupPushTokenSync();
+  }, [isAuthenticated]);
 
   if (initializing) {
     return <Loading message="Đang kiểm tra đăng nhập..." />;

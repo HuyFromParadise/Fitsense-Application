@@ -12,13 +12,22 @@ import com.example.fitsense.exercise.dto.ExerciseUpdateRequest;
 import com.example.fitsense.exercise.dto.GpsPointDto;
 import com.example.fitsense.exercise.entity.ExerciseMetricEntity;
 import com.example.fitsense.exercise.entity.ExerciseSessionEntity;
+import com.example.fitsense.exercise.entity.ExerciseStatus;
 import com.example.fitsense.exercise.entity.ExerciseType;
 import com.example.fitsense.exercise.entity.GpsPointEntity;
 import com.example.fitsense.exercise.repository.ExerciseSessionRepository;
 import com.example.fitsense.exercise.repository.GpsPointRepository;
+import com.example.fitsense.goal.entity.GoalEntity;
+import com.example.fitsense.goal.repository.GoalRepository;
+import com.example.fitsense.notification.service.NotificationService;
 import com.example.fitsense.user.dto.UserResponse;
 import com.example.fitsense.user.service.UserService;
+import java.time.DayOfWeek;
 import java.time.Duration;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
+import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
@@ -41,6 +50,8 @@ public class ExerciseService {
     private final ExerciseSessionRepository sessionRepository;
     private final GpsPointRepository gpsPointRepository;
     private final UserService userService;
+    private final GoalRepository goalRepository;
+    private final NotificationService notificationService;
 
     public record CreateSessionResult(ExerciseSummaryResponse summary, boolean created) {}
 
@@ -98,6 +109,10 @@ public class ExerciseService {
                 savedSession.getId(), userId, savedSession.getExerciseType(),
                 request.gpsPoints() != null ? request.gpsPoints().size() : 0);
 
+        if (savedSession.getStatus() == ExerciseStatus.FINISHED) {
+            notifyCrossedWeeklyGoals(userId, savedSession);
+        }
+
         return new CreateSessionResult(ExerciseSummaryResponse.fromEntity(savedSession), true);
     }
 
@@ -136,6 +151,7 @@ public class ExerciseService {
             throw new ApiException(ErrorCode.VALIDATION_ERROR, "endedAt must not be before startedAt");
         }
 
+        ExerciseStatus previousStatus = session.getStatus();
         session.setStatus(request.status());
         if (request.endedAt() != null) {
             session.setEndedAt(request.endedAt());
@@ -163,7 +179,65 @@ public class ExerciseService {
         }
 
         ExerciseSessionEntity updated = sessionRepository.save(session);
+        if (previousStatus != ExerciseStatus.FINISHED && updated.getStatus() == ExerciseStatus.FINISHED) {
+            notifyCrossedWeeklyGoals(currentUser.id(), updated);
+        }
         return ExerciseSummaryResponse.fromEntity(updated);
+    }
+
+    private void notifyCrossedWeeklyGoals(UUID userId, ExerciseSessionEntity finishedSession) {
+        try {
+            LocalDate sessionDate = LocalDate.ofInstant(finishedSession.getStartedAt(), ZoneOffset.UTC);
+            List<GoalEntity> goals = goalRepository.findActive(userId, sessionDate);
+            boolean hasWeeklyGoal = goals.stream().anyMatch(g ->
+                    g.getType().name().startsWith("WEEKLY_EXERCISE_"));
+            if (!hasWeeklyGoal) {
+                return;
+            }
+
+            LocalDate weekStart = sessionDate.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+            Instant from = weekStart.atStartOfDay(ZoneOffset.UTC).toInstant();
+            Instant to = weekStart.plusWeeks(1).atStartOfDay(ZoneOffset.UTC).toInstant();
+
+            List<ExerciseSessionEntity> finishedThisWeek =
+                    sessionRepository.findByUserIdAndStatusAndStartedAtGreaterThanEqualAndStartedAtLessThan(
+                            userId, ExerciseStatus.FINISHED, from, to);
+
+            int totalCount = finishedThisWeek.size();
+            boolean savedIncluded = finishedThisWeek.stream()
+                    .anyMatch(s -> finishedSession.getId().equals(s.getId()));
+            if (!savedIncluded) {
+                totalCount += 1;
+            }
+
+            int totalSeconds = finishedThisWeek.stream()
+                    .mapToInt(s -> s.getMetrics() != null ? s.getMetrics().getDurationSeconds() : 0)
+                    .sum();
+            int currentSessionSeconds = finishedSession.getMetrics() != null
+                    ? finishedSession.getMetrics().getDurationSeconds()
+                    : 0;
+            if (!savedIncluded) {
+                totalSeconds += currentSessionSeconds;
+            }
+
+            int prevCount = Math.max(0, totalCount - 1);
+            double prevMinutes = Math.max(0, totalSeconds - currentSessionSeconds) / 60.0;
+            double currMinutes = totalSeconds / 60.0;
+
+            for (GoalEntity goal : goals) {
+                double target = goal.getTargetValue();
+                boolean crossed = switch (goal.getType()) {
+                    case WEEKLY_EXERCISE_COUNT -> prevCount < target && totalCount >= target;
+                    case WEEKLY_EXERCISE_DURATION -> prevMinutes < target && currMinutes >= target;
+                    default -> false;
+                };
+                if (crossed) {
+                    notificationService.notifyGoalAchieved(userId, goal.getType().name(), target);
+                }
+            }
+        } catch (Exception ex) {
+            log.warn("Failed to evaluate weekly exercise goals for user {}: {}", userId, ex.getMessage());
+        }
     }
 
     private ExerciseSessionEntity findOwnedSession(UUID sessionId, UUID userId) {

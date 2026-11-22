@@ -6,6 +6,7 @@ import {
   ScrollView,
   Alert,
   TouchableOpacity,
+  Image,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../../app/providers/ThemeProvider';
@@ -25,6 +26,9 @@ export function ProfileScreen() {
 
   const [showNotifications, setShowNotifications] = useState(false);
   const [displayName, setDisplayName] = useState('');
+  const [birthDate, setBirthDate] = useState('');
+  const [avatarUrl, setAvatarUrl] = useState('');
+  const [avatarError, setAvatarError] = useState(false);
   const [heightCm, setHeightCm] = useState('');
   const [weightKg, setWeightKg] = useState('');
   const [gender, setGender] = useState<'male' | 'female' | 'other' | 'prefer_not_to_say'>('male');
@@ -35,6 +39,9 @@ export function ProfileScreen() {
   useEffect(() => {
     if (profile) {
       setDisplayName(profile.displayName || '');
+      setBirthDate(profile.birthDate || '');
+      setAvatarUrl(profile.avatarUrl || '');
+      setAvatarError(false);
       setHeightCm(profile.heightCm ? String(profile.heightCm) : '');
       setWeightKg(profile.weightKg ? String(profile.weightKg) : '');
       if (profile.gender) setGender(profile.gender as any);
@@ -82,14 +89,34 @@ export function ProfileScreen() {
       return;
     }
 
+    const cleanBirthDate = birthDate.trim();
+    if (cleanBirthDate) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(cleanBirthDate) || isNaN(Date.parse(cleanBirthDate))) {
+        Alert.alert('Lỗi', 'Ngày sinh phải đúng định dạng yyyy-MM-dd (ví dụ 2000-05-15)');
+        return;
+      }
+      if (cleanBirthDate > new Date().toISOString().slice(0, 10)) {
+        Alert.alert('Lỗi', 'Ngày sinh không được ở tương lai');
+        return;
+      }
+    }
+
+    const cleanAvatarUrl = avatarUrl.trim();
+    if (cleanAvatarUrl && !/^https?:\/\/\S+$/i.test(cleanAvatarUrl)) {
+      Alert.alert('Lỗi', 'URL ảnh đại diện phải bắt đầu bằng http:// hoặc https://');
+      return;
+    }
+
     setSaving(true);
     try {
       await updateProfile({
         displayName: displayName.trim(),
+        birthDate: cleanBirthDate || undefined,
         heightCm: cleanH ? h : undefined,
         weightKg: cleanW ? w : undefined,
         gender,
         fitnessLevel,
+        avatarUrl: cleanAvatarUrl || undefined,
       });
       await refresh();
       Alert.alert('Thành công', 'Đã lưu thông tin hồ sơ của bạn.');
@@ -114,7 +141,7 @@ export function ProfileScreen() {
             try {
               await deleteAccount();
               await signOut();
-            } catch (err: any) {
+            } catch {
               Alert.alert('Lỗi', 'Không thể xóa tài khoản. Vui lòng thử lại sau.');
             } finally {
               setDeleting(false);
@@ -140,9 +167,17 @@ export function ProfileScreen() {
       {/* Avatar & Header */}
       <View style={[styles.header, { marginVertical: spacing.lg }]}>
         <View style={[styles.avatarBadge, { backgroundColor: colors.primary }]}>
-          <Text style={[styles.avatarText, { color: colors.onPrimary }]}>
-            {displayName ? displayName.charAt(0).toUpperCase() : 'U'}
-          </Text>
+          {avatarUrl.trim() && !avatarError ? (
+            <Image
+              source={{ uri: avatarUrl.trim() }}
+              style={styles.avatarImage}
+              onError={() => setAvatarError(true)}
+            />
+          ) : (
+            <Text style={[styles.avatarText, { color: colors.onPrimary }]}>
+              {displayName ? displayName.charAt(0).toUpperCase() : 'U'}
+            </Text>
+          )}
         </View>
         <Text style={[typography.heading, { color: colors.text }]}>
           {displayName || 'Người dùng FitSense'}
@@ -183,6 +218,26 @@ export function ProfileScreen() {
           value={displayName}
           onChangeText={setDisplayName}
           placeholder="Nhập họ và tên"
+        />
+
+        <Input
+          label="Ngày sinh (yyyy-MM-dd)"
+          value={birthDate}
+          onChangeText={setBirthDate}
+          placeholder="2000-05-15"
+          autoCapitalize="none"
+        />
+
+        <Input
+          label="URL ảnh đại diện (tùy chọn)"
+          value={avatarUrl}
+          onChangeText={(text) => {
+            setAvatarUrl(text);
+            setAvatarError(false);
+          }}
+          placeholder="https://example.com/avatar.jpg"
+          autoCapitalize="none"
+          keyboardType="url"
         />
 
         <View style={[styles.twoCol, { gap: spacing.md }]}>
@@ -331,6 +386,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 8,
+    overflow: 'hidden',
+  },
+  avatarImage: {
+    width: 72,
+    height: 72,
   },
   avatarText: {
     fontSize: 28,

@@ -9,7 +9,9 @@ import static org.mockito.Mockito.when;
 import com.example.fitsense.common.security.CurrentUser;
 import com.example.fitsense.notification.dto.DeviceRegistrationRequest;
 import com.example.fitsense.notification.dto.NotificationSettingsDto;
+import com.example.fitsense.notification.entity.NotificationSettingsEntity;
 import com.example.fitsense.notification.entity.UserDeviceEntity;
+import com.example.fitsense.notification.repository.NotificationSettingsRepository;
 import com.example.fitsense.notification.repository.UserDeviceRepository;
 import com.example.fitsense.notification.service.NotificationService;
 import com.example.fitsense.user.entity.UserEntity;
@@ -35,6 +37,9 @@ class NotificationServiceTest {
 
     @Mock
     private UserRepository userRepository;
+
+    @Mock
+    private NotificationSettingsRepository settingsRepository;
 
     @Mock
     private JdbcTemplate jdbcTemplate;
@@ -94,17 +99,23 @@ class NotificationServiceTest {
     @Test
     void getSettings_returnsDefaultSettings() {
         when(userRepository.findByFirebaseUid("firebase-uid-1")).thenReturn(Optional.of(testUser));
+        when(settingsRepository.findById(userId)).thenReturn(Optional.empty());
 
         NotificationSettingsDto settings = notificationService.getSettings(authUser);
 
         assertThat(settings.isWeeklyReportEnabled()).isTrue();
         assertThat(settings.isWorkoutRemindersEnabled()).isTrue();
         assertThat(settings.isGoalAchievementsEnabled()).isTrue();
+        assertThat(settings.getQuietHoursStart()).isEqualTo("22:00");
+        assertThat(settings.getQuietHoursEnd()).isEqualTo("07:00");
     }
 
     @Test
-    void updateSettings_updatesAndReturnsNewSettings() {
+    void updateSettings_persistsAndReturnsNewSettings() {
         when(userRepository.findByFirebaseUid("firebase-uid-1")).thenReturn(Optional.of(testUser));
+        when(settingsRepository.findById(userId)).thenReturn(Optional.empty());
+        when(settingsRepository.save(any(NotificationSettingsEntity.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
 
         NotificationSettingsDto update = NotificationSettingsDto.builder()
                 .weeklyReportEnabled(false)
@@ -116,9 +127,7 @@ class NotificationServiceTest {
 
         assertThat(result.isWeeklyReportEnabled()).isFalse();
         assertThat(result.isGoalAchievementsEnabled()).isFalse();
-
-        NotificationSettingsDto fetched = notificationService.getSettings(authUser);
-        assertThat(fetched.isWeeklyReportEnabled()).isFalse();
+        verify(settingsRepository).save(any(NotificationSettingsEntity.class));
     }
 
     @Test
@@ -147,6 +156,7 @@ class NotificationServiceTest {
 
     @Test
     void notifyGoalAchieved_sendsNotificationWhenEnabled() {
+        when(settingsRepository.findById(userId)).thenReturn(Optional.empty());
         UserDeviceEntity device = UserDeviceEntity.builder()
                 .userId(userId)
                 .deviceId("dev-1")
@@ -163,6 +173,7 @@ class NotificationServiceTest {
     @Test
     void dispatchWeeklyReports_queriesActivitiesAndDispatches() {
         when(userRepository.findAll()).thenReturn(List.of(testUser));
+        when(settingsRepository.findById(userId)).thenReturn(Optional.empty());
 
         UserDeviceEntity device = UserDeviceEntity.builder()
                 .userId(userId)

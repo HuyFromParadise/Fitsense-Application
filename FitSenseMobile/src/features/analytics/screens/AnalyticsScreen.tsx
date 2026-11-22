@@ -243,21 +243,30 @@ export function AnalyticsScreen() {
 
             <Card style={styles.kpiCard}>
               <Text style={[typography.caption, { color: colors.textMuted, marginBottom: 4 }]}>Hoàn thành mục tiêu</Text>
-              <Text
-                style={[
-                  typography.heading,
-                  {
-                    color:
-                      data.goalCompletionRate >= 70
-                        ? colors.success
-                        : data.goalCompletionRate >= 40
-                        ? colors.warning
-                        : colors.textMuted,
-                  },
-                ]}
-              >
-                {data.goalCompletionRate}%
-              </Text>
+              {(() => {
+                const completionPct = Math.round(
+                  data.goalCompletionRate <= 1
+                    ? data.goalCompletionRate * 100
+                    : data.goalCompletionRate
+                );
+                return (
+                  <Text
+                    style={[
+                      typography.heading,
+                      {
+                        color:
+                          completionPct >= 70
+                            ? colors.success
+                            : completionPct >= 40
+                            ? colors.warning
+                            : colors.textMuted,
+                      },
+                    ]}
+                  >
+                    {completionPct}%
+                  </Text>
+                );
+              })()}
               <Text style={[typography.caption, { color: colors.textMuted, marginTop: 2 }]}>
                 Tỷ lệ đạt goal
               </Text>

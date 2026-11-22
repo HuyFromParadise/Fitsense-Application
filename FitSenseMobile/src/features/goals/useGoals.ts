@@ -1,6 +1,7 @@
+import { useEffect } from 'react';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 
-import { LocalDb } from '../../services/native';
+import { LocalDb, Notification } from '../../services/native';
 import type { LocalExerciseRow } from '../../types/native-interface';
 import { goalsApi } from './goalsApi';
 import { sumWeeklyExercises, weekEndMs, weekStartMs, type WeeklyExerciseTotals } from './goalProgress';
@@ -44,6 +45,13 @@ export function useGoals() {
     queryKey: ['goals', 'list'],
     queryFn: goalsApi.listGoals,
   });
+
+  useEffect(() => {
+    const dailyStepGoal = list.data?.find(g => g.type === 'DAILY_STEPS' && g.enabled);
+    if (dailyStepGoal && dailyStepGoal.targetValue > 0) {
+      Notification.setDailyStepGoal?.(dailyStepGoal.targetValue).catch(() => {});
+    }
+  }, [list.data]);
 
   const create = useMutation({
     mutationFn: (request: GoalUpsertRequest) => goalsApi.createGoal(request),

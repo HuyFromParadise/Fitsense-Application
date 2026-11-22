@@ -4,5 +4,3 @@ export { EmptyState } from './EmptyState';
 export { ErrorState } from './ErrorState';
 export { Input } from './Input';
 export { Loading } from './Loading';
-
-export * from './ThemeSwitch';

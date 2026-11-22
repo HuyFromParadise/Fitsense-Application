@@ -18,6 +18,10 @@ import com.example.fitsense.common.exception.ApiException;
 import com.example.fitsense.common.exception.ErrorCode;
 import com.example.fitsense.common.response.PageResponse;
 import com.example.fitsense.common.security.CurrentUser;
+import com.example.fitsense.goal.entity.GoalEntity;
+import com.example.fitsense.goal.entity.GoalType;
+import com.example.fitsense.goal.repository.GoalRepository;
+import com.example.fitsense.notification.service.NotificationService;
 import com.example.fitsense.sync.dto.SyncEntityType;
 import com.example.fitsense.sync.dto.SyncItemResult;
 import com.example.fitsense.sync.dto.SyncStatus;
@@ -48,6 +52,12 @@ class ActivityServiceTest {
     @Mock
     private UserService userService;
 
+    @Mock
+    private GoalRepository goalRepository;
+
+    @Mock
+    private NotificationService notificationService;
+
     private ActivityService activityService;
 
     private final CurrentUser authUser = new CurrentUser("firebase-uid", "user@example.com");
@@ -55,7 +65,8 @@ class ActivityServiceTest {
 
     @BeforeEach
     void setUp() {
-        activityService = new ActivityService(activityRepository, userService);
+        activityService = new ActivityService(
+                activityRepository, userService, goalRepository, notificationService);
         when(userService.getOrCreateCurrentUser(authUser))
                 .thenReturn(UserResponse.builder().id(userId).build());
     }
@@ -239,6 +250,27 @@ class ActivityServiceTest {
                 .extracting(ex -> ((ApiException) ex).getCode())
                 .isEqualTo(ErrorCode.VALIDATION_ERROR);
         verify(activityRepository, never()).save(any());
+    }
+
+    @Test
+    void syncTriggersGoalNotificationOnlyWhenThresholdCrossed() {
+        DailyActivityUpsert crossing = item(Instant.parse("2026-11-12T04:00:00Z"), 8500);
+        DailyActivityEntity existing = entity(Instant.parse("2026-11-12T03:00:00Z"), 7500);
+        GoalEntity goal = GoalEntity.builder()
+                .userId(userId)
+                .type(GoalType.DAILY_STEPS)
+                .targetValue(8000.0)
+                .startsOn(LocalDate.of(2026, 11, 1))
+                .enabled(true)
+                .build();
+
+        when(activityRepository.findByUserIdAndActivityDate(userId, crossing.activityDate()))
+                .thenReturn(Optional.of(existing));
+        when(goalRepository.findActive(userId, crossing.activityDate())).thenReturn(List.of(goal));
+
+        activityService.sync(authUser, request(crossing));
+
+        verify(notificationService).notifyGoalAchieved(userId, "DAILY_STEPS", 8000.0);
     }
 
     private ActivitySyncRequest request(DailyActivityUpsert item) {

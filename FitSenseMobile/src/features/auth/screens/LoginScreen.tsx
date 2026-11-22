@@ -1,7 +1,10 @@
+import { zodResolver } from '@hookform/resolvers/zod';
 import { getAuth, signInWithEmailAndPassword } from '@react-native-firebase/auth';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import React, { useState } from 'react';
+import { Controller, useForm } from 'react-hook-form';
 import { Alert, ScrollView, Text } from 'react-native';
+import { z } from 'zod';
 
 import { useTheme } from '../../../app/providers/ThemeProvider';
 import type { AuthStackParamList } from '../../../app/navigation/types';
@@ -11,32 +14,38 @@ import { signInWithGoogle } from '../googleSignIn';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'Login'>;
 
+const loginSchema = z.object({
+  email: z.string().trim().min(1, 'Vui lòng nhập email').email('Email không hợp lệ'),
+  password: z.string().min(1, 'Vui lòng nhập mật khẩu'),
+});
+
+type LoginValues = z.infer<typeof loginSchema>;
+
 export function LoginScreen({ navigation }: Props) {
   const { colors, spacing, typography } = useTheme();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
 
-  const handleLogin = async () => {
-    const nextErrors: typeof errors = {};
-    if (!email.trim()) nextErrors.email = 'Vui lòng nhập email';
-    else if (!/\S+@\S+\.\S+/.test(email.trim())) nextErrors.email = 'Email không hợp lệ';
-    if (!password) nextErrors.password = 'Vui lòng nhập mật khẩu';
-    setErrors(nextErrors);
-    if (Object.keys(nextErrors).length > 0) return;
+  const {
+    control,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<LoginValues>({
+    resolver: zodResolver(loginSchema),
+    defaultValues: { email: '', password: '' },
+  });
 
+  const handleLogin = handleSubmit(async values => {
     setLoading(true);
     try {
       // onAuthStateChanged (AuthProvider) flips navigation once signed in.
-      await signInWithEmailAndPassword(getAuth(), email.trim(), password);
+      await signInWithEmailAndPassword(getAuth(), values.email.trim(), values.password);
     } catch (error: any) {
       Alert.alert('Đăng nhập thất bại', authErrorMessage(error?.code));
     } finally {
       setLoading(false);
     }
-  };
+  });
 
   const handleGoogleLogin = async () => {
     setGoogleLoading(true);
@@ -73,24 +82,36 @@ export function LoginScreen({ navigation }: Props) {
       </Text>
 
       <Card style={{ gap: spacing.md }}>
-        <Input
-          label="Email"
-          placeholder="you@example.com"
-          autoCapitalize="none"
-          autoComplete="email"
-          keyboardType="email-address"
-          value={email}
-          onChangeText={setEmail}
-          error={errors.email}
+        <Controller
+          control={control}
+          name="email"
+          render={({ field: { onChange, value } }) => (
+            <Input
+              label="Email"
+              placeholder="you@example.com"
+              autoCapitalize="none"
+              autoComplete="email"
+              keyboardType="email-address"
+              value={value}
+              onChangeText={onChange}
+              error={errors.email?.message}
+            />
+          )}
         />
-        <Input
-          label="Mật khẩu"
-          placeholder="••••••"
-          secureTextEntry
-          autoComplete="password"
-          value={password}
-          onChangeText={setPassword}
-          error={errors.password}
+        <Controller
+          control={control}
+          name="password"
+          render={({ field: { onChange, value } }) => (
+            <Input
+              label="Mật khẩu"
+              placeholder="••••••"
+              secureTextEntry
+              autoComplete="password"
+              value={value}
+              onChangeText={onChange}
+              error={errors.password?.message}
+            />
+          )}
         />
         <Button title="Đăng nhập" onPress={handleLogin} loading={loading} />
         <Button

@@ -6,11 +6,12 @@ import com.example.fitsense.common.security.CurrentUser;
 import com.example.fitsense.user.service.UserService;
 import java.nio.ByteBuffer;
 import java.sql.Date;
+import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.YearMonth;
-import java.time.ZoneOffset;
+import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
@@ -35,23 +36,37 @@ public class AnalyticsService {
 
     @Transactional(readOnly = true)
     public PeriodAnalyticsResponse getWeeklyAnalytics(CurrentUser authUser, LocalDate weekStart) {
+        return getWeeklyAnalytics(authUser, weekStart, null);
+    }
+
+    @Transactional(readOnly = true)
+    public PeriodAnalyticsResponse getWeeklyAnalytics(
+            CurrentUser authUser, LocalDate weekStart, String timezoneId) {
         UUID userId = userService.getOrCreateCurrentUser(authUser).id();
+        ZoneId zone = resolveZone(uuidToBytes(userId), timezoneId);
         LocalDate effectiveStart = (weekStart != null)
                 ? weekStart.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
-                : LocalDate.now(clock).with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+                : LocalDate.now(clock.withZone(zone)).with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
         LocalDate effectiveEnd = effectiveStart.plusDays(6);
 
         LocalDate prevStart = effectiveStart.minusWeeks(1);
         LocalDate prevEnd = effectiveEnd.minusWeeks(1);
 
-        PeriodAnalyticsResponse previous = computePeriod(userId, prevStart, prevEnd, null, false);
-        return computePeriod(userId, effectiveStart, effectiveEnd, previous, true);
+        PeriodAnalyticsResponse previous = computePeriod(userId, prevStart, prevEnd, zone, null, false);
+        return computePeriod(userId, effectiveStart, effectiveEnd, zone, previous, true);
     }
 
     @Transactional(readOnly = true)
     public PeriodAnalyticsResponse getMonthlyAnalytics(CurrentUser authUser, YearMonth month) {
+        return getMonthlyAnalytics(authUser, month, null);
+    }
+
+    @Transactional(readOnly = true)
+    public PeriodAnalyticsResponse getMonthlyAnalytics(
+            CurrentUser authUser, YearMonth month, String timezoneId) {
         UUID userId = userService.getOrCreateCurrentUser(authUser).id();
-        YearMonth effectiveMonth = (month != null) ? month : YearMonth.now(clock);
+        ZoneId zone = resolveZone(uuidToBytes(userId), timezoneId);
+        YearMonth effectiveMonth = (month != null) ? month : YearMonth.now(clock.withZone(zone));
         LocalDate effectiveStart = effectiveMonth.atDay(1);
         LocalDate effectiveEnd = effectiveMonth.atEndOfMonth();
 
@@ -59,14 +74,15 @@ public class AnalyticsService {
         LocalDate prevStart = prevMonth.atDay(1);
         LocalDate prevEnd = prevMonth.atEndOfMonth();
 
-        PeriodAnalyticsResponse previous = computePeriod(userId, prevStart, prevEnd, null, false);
-        return computePeriod(userId, effectiveStart, effectiveEnd, previous, true);
+        PeriodAnalyticsResponse previous = computePeriod(userId, prevStart, prevEnd, zone, null, false);
+        return computePeriod(userId, effectiveStart, effectiveEnd, zone, previous, true);
     }
 
     private PeriodAnalyticsResponse computePeriod(
             UUID userId,
             LocalDate start,
             LocalDate end,
+            ZoneId zone,
             PeriodAnalyticsResponse previous,
             boolean includeBreakdown
     ) {
@@ -75,8 +91,8 @@ public class AnalyticsService {
         // 1. Read daily_activities (owned by B, read-only query by A)
         Map<LocalDate, DailyActivityRow> activityByDate = queryDailyActivities(userIdBytes, start, end);
 
-        // 2. Read finished exercise_sessions + exercise_metrics (owned by A)
-        Map<LocalDate, ExerciseAggregateRow> exerciseByDate = queryExercises(userIdBytes, start, end);
+        // 2. Read finished exercise_sessions + exercise_metrics grouped in the user's ZoneId
+        Map<LocalDate, ExerciseAggregateRow> exerciseByDate = queryExercises(userIdBytes, start, end, zone);
 
         // 3. Read active daily step goal if available (from V2 goals table)
         Double dailyStepGoal = queryDailyStepGoal(userIdBytes);
@@ -197,41 +213,70 @@ public class AnalyticsService {
         return map;
     }
 
-    private Map<LocalDate, ExerciseAggregateRow> queryExercises(byte[] userIdBytes, LocalDate start, LocalDate end) {
+    private Map<LocalDate, ExerciseAggregateRow> queryExercises(
+            byte[] userIdBytes, LocalDate start, LocalDate end, ZoneId zone) {
         Map<LocalDate, ExerciseAggregateRow> map = new HashMap<>();
         String sql = """
-                SELECT DATE(s.started_at) AS session_date,
-                       COUNT(*) AS session_count,
-                       COALESCE(SUM(m.duration_seconds), 0) AS total_duration,
-                       COALESCE(SUM(m.distance_m), 0) AS total_distance,
-                       COALESCE(SUM(m.calories), 0) AS total_calories
+                SELECT s.started_at,
+                       COALESCE(m.duration_seconds, 0) AS duration_seconds,
+                       COALESCE(m.distance_m, 0) AS distance_m,
+                       COALESCE(m.calories, 0) AS calories
                 FROM exercise_sessions s
                 LEFT JOIN exercise_metrics m ON s.id = m.session_id
                 WHERE s.user_id = ?
                   AND s.status = 'FINISHED'
                   AND s.started_at >= ?
                   AND s.started_at < ?
-                GROUP BY DATE(s.started_at)
                 """;
         try {
             jdbcTemplate.query(
                     sql,
                     rs -> {
-                        LocalDate date = rs.getDate("session_date").toLocalDate();
-                        int count = rs.getInt("session_count");
-                        long duration = rs.getLong("total_duration");
-                        double distance = rs.getDouble("total_distance");
-                        double calories = rs.getDouble("total_calories");
-                        map.put(date, new ExerciseAggregateRow(count, duration, distance, calories));
+                        Timestamp startedAt = rs.getTimestamp("started_at");
+                        if (startedAt == null) return;
+                        LocalDate date = startedAt.toInstant().atZone(zone).toLocalDate();
+                        long duration = rs.getLong("duration_seconds");
+                        double distance = rs.getDouble("distance_m");
+                        double calories = rs.getDouble("calories");
+                        map.merge(
+                                date,
+                                new ExerciseAggregateRow(1, duration, distance, calories),
+                                (a, b) -> new ExerciseAggregateRow(
+                                        a.count() + b.count(),
+                                        a.durationSeconds() + b.durationSeconds(),
+                                        a.distanceM() + b.distanceM(),
+                                        a.calories() + b.calories()));
                     },
                     userIdBytes,
-                    java.sql.Timestamp.from(start.atStartOfDay(ZoneOffset.UTC).toInstant()),
-                    java.sql.Timestamp.from(end.plusDays(1).atStartOfDay(ZoneOffset.UTC).toInstant())
+                    Timestamp.from(start.atStartOfDay(zone).toInstant()),
+                    Timestamp.from(end.plusDays(1).atStartOfDay(zone).toInstant())
             );
         } catch (Exception e) {
             log.warn("Could not query exercise_sessions for analytics: {}", e.getMessage());
         }
         return map;
+    }
+
+    private ZoneId resolveZone(byte[] userIdBytes, String requestedTimezoneId) {
+        if (requestedTimezoneId != null && !requestedTimezoneId.isBlank()) {
+            try {
+                return ZoneId.of(requestedTimezoneId.trim());
+            } catch (RuntimeException ignored) {
+                log.debug("Ignoring invalid timezoneId '{}', falling back", requestedTimezoneId);
+            }
+        }
+        try {
+            List<String> zones = jdbcTemplate.query(
+                    "SELECT timezone_id FROM daily_activities WHERE user_id = ? ORDER BY activity_date DESC LIMIT 1",
+                    (rs, rowNum) -> rs.getString("timezone_id"),
+                    userIdBytes);
+            if (!zones.isEmpty() && zones.get(0) != null && !zones.get(0).isBlank()) {
+                return ZoneId.of(zones.get(0));
+            }
+        } catch (Exception ignored) {
+            // Best-effort timezone fallback
+        }
+        return clock.getZone();
     }
 
     private Double queryDailyStepGoal(byte[] userIdBytes) {

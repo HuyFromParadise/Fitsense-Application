@@ -89,7 +89,9 @@ export const mockNative: FitSenseNative = {
     getLocalExercisePoints: async () => [],
     getUnsynced: async () => [],
     markActivitySyncState: async () => {},
+    markExerciseSyncState: async () => {},
     clearAllActivities: async () => {},
+    clearAllExercises: async () => {},
   },
   Notification: {
     ensureReady: async () => 'GRANTED',
@@ -97,6 +99,13 @@ export const mockNative: FitSenseNative = {
     cancel: async () => {},
     scheduleDailyReminders: async () => {},
     cancelDailyReminders: async () => {},
+    getDailyReminderConfig: async () => ({
+      enabled: false,
+      startHour: 8,
+      endHour: 21,
+      stepGoal: 8000,
+    }),
+    setDailyStepGoal: async () => {},
   },
   Sync: {
     enqueue: async () => {},

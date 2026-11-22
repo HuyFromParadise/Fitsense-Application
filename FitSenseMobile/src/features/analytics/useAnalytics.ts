@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
-import { NativeModules } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
+import { LocalDb } from '../../services/native';
+import { deviceTimeZone } from '../../utils/date';
 import { exerciseNative } from '../exercise';
 import { analyticsApi } from './analyticsApi';
 import { DailyBreakdownItem, PeriodAnalytics } from './types';
@@ -53,12 +54,14 @@ export const useAnalytics = () => {
     };
   }, [mode, offset]);
 
+  const timezoneId = useMemo(() => deviceTimeZone(), []);
+
   const query = useQuery({
-    queryKey: ['analytics', mode, bounds.param],
+    queryKey: ['analytics', mode, bounds.param, timezoneId],
     queryFn: () =>
       mode === 'weekly'
-        ? analyticsApi.getWeekly(bounds.param)
-        : analyticsApi.getMonthly(bounds.param),
+        ? analyticsApi.getWeekly(bounds.param, timezoneId)
+        : analyticsApi.getMonthly(bounds.param, timezoneId),
     retry: 1,
   });
 
@@ -68,11 +71,10 @@ export const useAnalytics = () => {
 
     const buildOfflineAnalytics = async () => {
       try {
-        const localExercises = await exerciseNative.getLocalExercises(200, 0);
-        let todayActivity: any = null;
-        if (NativeModules.LocalDbModule?.getTodayActivity) {
-          todayActivity = await NativeModules.LocalDbModule.getTodayActivity();
-        }
+        const [localExercises, todayActivity] = await Promise.all([
+          exerciseNative.getLocalExercises(200, 0),
+          LocalDb.getTodayActivity().catch(() => null),
+        ]);
 
         const dailyMap = new Map<string, DailyBreakdownItem>();
         for (

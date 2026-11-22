@@ -35,16 +35,18 @@ public class AnalyticsController {
             @AuthenticatedUser CurrentUser currentUser,
             @RequestParam(required = false)
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
-            LocalDate weekStart
+            LocalDate weekStart,
+            @RequestParam(required = false) String timezoneId
     ) {
-        return ApiResponse.ok(analyticsService.getWeeklyAnalytics(currentUser, weekStart));
+        return ApiResponse.ok(analyticsService.getWeeklyAnalytics(currentUser, weekStart, timezoneId));
     }
 
     @GetMapping("/monthly")
     @Operation(summary = "Thống kê theo tháng, kèm so sánh tháng trước và phân rã từng ngày")
     public ApiResponse<PeriodAnalyticsResponse> monthly(
             @AuthenticatedUser CurrentUser currentUser,
-            @RequestParam(required = false) String month
+            @RequestParam(required = false) String month,
+            @RequestParam(required = false) String timezoneId
     ) {
         YearMonth parsedMonth = null;
         if (month != null && !month.isBlank()) {
@@ -54,6 +56,6 @@ public class AnalyticsController {
                 throw new ApiException(ErrorCode.VALIDATION_ERROR, "month must follow format YYYY-MM");
             }
         }
-        return ApiResponse.ok(analyticsService.getMonthlyAnalytics(currentUser, parsedMonth));
+        return ApiResponse.ok(analyticsService.getMonthlyAnalytics(currentUser, parsedMonth, timezoneId));
     }
 }

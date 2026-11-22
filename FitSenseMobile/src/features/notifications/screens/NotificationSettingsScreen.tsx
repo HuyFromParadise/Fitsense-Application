@@ -43,6 +43,7 @@ export function NotificationSettingsScreen({ onBack }: NotificationSettingsScree
     startHour: 8,
     endHour: 21,
   });
+  const [stepGoalHint, setStepGoalHint] = useState<number>(8000);
   const [localLoading, setLocalLoading] = useState(true);
 
   useEffect(() => {
@@ -65,11 +66,15 @@ export function NotificationSettingsScreen({ onBack }: NotificationSettingsScree
   const loadLocalSettings = async () => {
     try {
       setLocalLoading(true);
-      const status = await Notification.ensureReady();
-      if (status === 'GRANTED') {
-        // If permission granted, assume reminders might be scheduled
-        // We can't easily query WorkManager state, so default to false
-        setLocalSettings(prev => ({ ...prev, enabled: false }));
+      await Notification.ensureReady();
+      const config = await Notification.getDailyReminderConfig?.();
+      if (config) {
+        setLocalSettings({
+          enabled: config.enabled,
+          startHour: config.startHour,
+          endHour: config.endHour,
+        });
+        setStepGoalHint(config.stepGoal || 8000);
       }
     } catch {
       // Ignore
@@ -144,7 +149,11 @@ export function NotificationSettingsScreen({ onBack }: NotificationSettingsScree
       setTesting(true);
       await notificationApi.registerDevice();
       const res = await notificationApi.sendTestNotification();
-      Alert.alert('Thành công', res.message || 'Đã gửi thông báo thử nghiệm đến thiết bị của bạn!');
+      const count = res?.dispatchedCount ?? 0;
+      Alert.alert(
+        'Thành công',
+        res?.message || `Đã gửi thông báo thử nghiệm tới ${count} thiết bị của bạn!`,
+      );
     } catch (err: any) {
       Alert.alert('Lỗi', 'Không thể gửi thông báo thử nghiệm: ' + (err.message || 'Lỗi kết nối'));
     } finally {
@@ -276,7 +285,7 @@ export function NotificationSettingsScreen({ onBack }: NotificationSettingsScree
               Bật nhắc nhở cục bộ
             </Text>
             <Text style={[styles.settingDesc, { color: colors.textMuted, ...typography.caption }]}>
-              Nhắc đạt mục tiêu bước chân (8000 bước) và nhắc ít vận động (60-90 phút không có bước mới).
+              Nhắc đạt mục tiêu bước chân ({stepGoalHint.toLocaleString()} bước) và nhắc ít vận động (60-90 phút không có bước mới).
             </Text>
           </View>
           <Switch
@@ -300,7 +309,10 @@ export function NotificationSettingsScreen({ onBack }: NotificationSettingsScree
                 <View style={styles.timeControl}>
                   <TouchableOpacity
                     onPress={() => adjustStartHour(-1)}
-                    style={styles.timeAdjustButton}
+                    style={[
+                      styles.timeAdjustButton,
+                      { borderColor: colors.border, backgroundColor: colors.surfaceAlt },
+                    ]}
                     disabled={localSettings.startHour <= 0}
                   >
                     <Text style={[styles.timeAdjustText, { color: colors.text, ...typography.body }]}>−</Text>
@@ -310,7 +322,10 @@ export function NotificationSettingsScreen({ onBack }: NotificationSettingsScree
                   </Text>
                   <TouchableOpacity
                     onPress={() => adjustStartHour(1)}
-                    style={styles.timeAdjustButton}
+                    style={[
+                      styles.timeAdjustButton,
+                      { borderColor: colors.border, backgroundColor: colors.surfaceAlt },
+                    ]}
                     disabled={localSettings.startHour >= localSettings.endHour - 1}
                   >
                     <Text style={[styles.timeAdjustText, { color: colors.text, ...typography.body }]}>+</Text>
@@ -324,7 +339,10 @@ export function NotificationSettingsScreen({ onBack }: NotificationSettingsScree
                 <View style={styles.timeControl}>
                   <TouchableOpacity
                     onPress={() => adjustEndHour(-1)}
-                    style={styles.timeAdjustButton}
+                    style={[
+                      styles.timeAdjustButton,
+                      { borderColor: colors.border, backgroundColor: colors.surfaceAlt },
+                    ]}
                     disabled={localSettings.endHour <= localSettings.startHour + 1}
                   >
                     <Text style={[styles.timeAdjustText, { color: colors.text, ...typography.body }]}>−</Text>
@@ -334,7 +352,10 @@ export function NotificationSettingsScreen({ onBack }: NotificationSettingsScree
                   </Text>
                   <TouchableOpacity
                     onPress={() => adjustEndHour(1)}
-                    style={styles.timeAdjustButton}
+                    style={[
+                      styles.timeAdjustButton,
+                      { borderColor: colors.border, backgroundColor: colors.surfaceAlt },
+                    ]}
                     disabled={localSettings.endHour >= 23}
                   >
                     <Text style={[styles.timeAdjustText, { color: colors.text, ...typography.body }]}>+</Text>
@@ -344,7 +365,7 @@ export function NotificationSettingsScreen({ onBack }: NotificationSettingsScree
             </View>
 
             <Text style={[styles.hint, { color: colors.textMuted, ...typography.caption }]}>
-              Nhắc đạt bước: vào cuối khung giờ nếu chưa đủ 8000 bước. Nhắc ít vận động: sau 60-90 phút không có bước mới.
+              Nhắc đạt bước: vào cuối khung giờ nếu chưa đủ {stepGoalHint.toLocaleString()} bước. Nhắc ít vận động: sau 60-90 phút không có bước mới.
             </Text>
           </>
         )}
@@ -453,8 +474,6 @@ const styles = StyleSheet.create({
     height: 36,
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: '#ccc',
-    backgroundColor: '#f5f5f5',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -471,7 +490,6 @@ const styles = StyleSheet.create({
   hint: {
     lineHeight: 18,
     marginTop: 4,
-    color: '#888', // placeholder, overridden by component
   },
   buttonRow: {
     flexDirection: 'row',

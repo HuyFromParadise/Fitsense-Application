@@ -1,7 +1,10 @@
 package com.example.fitsense.exercise.repository;
 
 import com.example.fitsense.exercise.entity.ExerciseSessionEntity;
+import com.example.fitsense.exercise.entity.ExerciseStatus;
 import com.example.fitsense.exercise.entity.ExerciseType;
+import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
@@ -22,4 +25,8 @@ public interface ExerciseSessionRepository extends JpaRepository<ExerciseSession
 
     @EntityGraph(attributePaths = {"metrics"})
     Optional<ExerciseSessionEntity> findWithMetricsById(UUID id);
+
+    @EntityGraph(attributePaths = {"metrics"})
+    List<ExerciseSessionEntity> findByUserIdAndStatusAndStartedAtGreaterThanEqualAndStartedAtLessThan(
+            UUID userId, ExerciseStatus status, Instant from, Instant to);
 }

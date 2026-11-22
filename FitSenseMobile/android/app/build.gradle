@@ -107,6 +107,10 @@ def googleMapsApiKey = getEnvProperty(
     localProperties.getProperty("GOOGLE_MAPS_API_KEY", "AIzaSyDummyKeyForLocalDevelopment")
 )
 
+def releaseStoreFilePath = getEnvProperty("FITSENSE_UPLOAD_STORE_FILE", "")
+def releaseStoreFile = releaseStoreFilePath ? file(releaseStoreFilePath) : null
+def hasReleaseKeystore = releaseStoreFile != null && releaseStoreFile.exists()
+
 android {
     ndkVersion rootProject.ext.ndkVersion
     buildToolsVersion rootProject.ext.buildToolsVersion
@@ -128,15 +132,23 @@ android {
             keyAlias 'androiddebugkey'
             keyPassword 'android'
         }
+        if (hasReleaseKeystore) {
+            release {
+                storeFile releaseStoreFile
+                storePassword getEnvProperty("FITSENSE_UPLOAD_STORE_PASSWORD", "")
+                keyAlias getEnvProperty("FITSENSE_UPLOAD_KEY_ALIAS", "")
+                keyPassword getEnvProperty("FITSENSE_UPLOAD_KEY_PASSWORD", "")
+            }
+        }
     }
     buildTypes {
         debug {
             signingConfig signingConfigs.debug
         }
         release {
-            // Caution! In production, you need to generate your own keystore file.
-            // see https://reactnative.dev/docs/signed-apk-android.
-            signingConfig signingConfigs.debug
+            // Reads FITSENSE_UPLOAD_STORE_FILE / PASSWORD / ALIAS env vars when provided;
+            // falls back to debug keystore for local unsigned builds.
+            signingConfig hasReleaseKeystore ? signingConfigs.release : signingConfigs.debug
             manifestPlaceholders = [usesCleartextTraffic: "false", googleMapsApiKey: googleMapsApiKey]
             minifyEnabled enableProguardInReleaseBuilds
             proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"

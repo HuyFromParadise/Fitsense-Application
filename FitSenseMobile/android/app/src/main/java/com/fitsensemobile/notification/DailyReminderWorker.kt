@@ -39,22 +39,29 @@ class DailyReminderWorker(
             return Result.success()
         }
 
-        // Kiểm tra khung giờ cho phép
+        // Kiểm tra bật nhắc nhở & khung giờ cho phép
         val prefs = getPrefs()
+        if (!prefs.getBoolean(PREF_ENABLED, false)) {
+            return Result.success()
+        }
         val startHour = prefs.getInt(PREF_START_HOUR, 8)
         val endHour = prefs.getInt(PREF_END_HOUR, 21)
         if (!isWithinWindow(startHour, endHour)) {
             return Result.success()
         }
 
-        // Đọc steps hôm nay
-        val counter = StepCounterReader.readCounter(applicationContext) ?: return Result.success()
-        val store = StepStore(applicationContext)
-        val result = store.compute(counter)
-        val stepsToday = result.today.steps
+        // Đọc steps hôm nay từ cảm biến; fallback Room để không bỏ qua inactivity trên máy không có sensor
+        val counter = StepCounterReader.readCounter(applicationContext)
+        val stepsToday = if (counter != null) {
+            StepStore(applicationContext).compute(counter).today.steps
+        } else {
+            FitSenseDatabase.getInstance(applicationContext)
+                .localActivityDao()
+                .getByDate(TimeUtils.todayIso())
+                ?.steps ?: 0
+        }
 
-        // Goal fallback 8000 (không có bảng goal native)
-        val goal = 8000
+        val goal = prefs.getInt(PREF_STEP_GOAL, 8000).coerceAtLeast(1)
 
         // Kiểm tra nhắc đạt bước (cuối khung giờ)
         if (isNearEndOfWindow(endHour) && stepsToday < goal) {
@@ -145,8 +152,10 @@ class DailyReminderWorker(
     companion object {
         const val WORK_NAME = "fitsense_daily_reminder"
         const val PREFS_NAME = "fitsense_reminder_prefs"
+        const val PREF_ENABLED = "reminders_enabled"
         const val PREF_START_HOUR = "start_hour"
         const val PREF_END_HOUR = "end_hour"
+        const val PREF_STEP_GOAL = "daily_step_goal"
         const val PREF_LAST_STEPS = "last_steps"
         const val PREF_LAST_STEPS_CHANGE_MS = "last_steps_change_ms"
         const val NOTIFICATION_ID_STEP_GOAL = 1001
@@ -169,9 +178,12 @@ class DailyReminderWorker(
             WorkManager.getInstance(context).cancelUniqueWork(WORK_NAME)
         }
 
-        /** Gọi từ BootReceiver sau reboot. */
+        /** Gọi từ BootReceiver sau reboot; chỉ đặt lại nếu người dùng đang bật nhắc nhở. */
         fun reschedule(context: Context) {
-            enqueuePeriodic(context)
+            val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            if (prefs.getBoolean(PREF_ENABLED, false)) {
+                enqueuePeriodic(context)
+            }
         }
     }
 }

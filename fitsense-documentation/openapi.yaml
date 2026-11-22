@@ -418,6 +418,12 @@ paths:
           schema:
             type: string
             format: date
+        - name: timezoneId
+          in: query
+          description: IANA timezone để gom nhóm ngày chính xác theo giờ địa phương
+          schema:
+            type: string
+            example: "Asia/Ho_Chi_Minh"
       responses:
         "200":
           description: Thống kê tuần
@@ -441,6 +447,12 @@ paths:
           schema:
             type: string
             example: "2026-01"
+        - name: timezoneId
+          in: query
+          description: IANA timezone để gom nhóm ngày chính xác theo giờ địa phương
+          schema:
+            type: string
+            example: "Asia/Ho_Chi_Minh"
       responses:
         "200":
           description: Thống kê tháng
@@ -1086,13 +1098,13 @@ components:
     NotificationSettings:
       type: object
       properties:
-        goalAchieved:
+        weeklyReportEnabled:
           type: boolean
           default: true
-        weeklyReport:
+        workoutRemindersEnabled:
           type: boolean
           default: true
-        inactivityReminder:
+        goalAchievementsEnabled:
           type: boolean
           default: true
         quietHoursStart:

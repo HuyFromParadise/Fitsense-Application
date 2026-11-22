@@ -11,6 +11,7 @@ import {
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTheme } from '../../app/providers/ThemeProvider';
 import { Card, EmptyState, Loading } from '../../components/common';
+import { toExerciseCreatePayload } from '../../services/sync/exerciseSync';
 import { exerciseApi } from './exerciseApi';
 import { exerciseNative } from './exerciseNative';
 import {
@@ -20,7 +21,7 @@ import {
   formatDuration,
   formatPace,
 } from './exerciseUtils';
-import { ExerciseSummary, ExerciseType, GpsPoint } from './types';
+import { ExerciseSummary, ExerciseType } from './types';
 
 interface ExerciseHistoryScreenProps {
   navigation: any;
@@ -95,31 +96,16 @@ export const ExerciseHistoryScreen: React.FC<ExerciseHistoryScreenProps> = ({
       let syncedCount = 0;
       for (const row of pendingRows) {
         const pts = await exerciseNative.getLocalExercisePoints(row.id);
-        const apiPoints: GpsPoint[] = pts.map((p) => ({
-          seq: p.seq,
-          latitude: p.latitude,
-          longitude: p.longitude,
-          altitudeM: p.altitudeM,
-          speedMps: p.speedMps,
-          accuracyM: p.accuracyM,
-          recordedAt: new Date(p.recordedAtMs).toISOString(),
-        }));
+        const payload = toExerciseCreatePayload(row, pts);
         await exerciseApi.createExercise({
-          id: row.id,
-          type: row.type,
-          status: row.status,
-          startedAt: new Date(row.startedAtMs).toISOString(),
-          endedAt: row.endedAtMs ? new Date(row.endedAtMs).toISOString() : null,
-          pausedSeconds: Math.floor(row.pausedTotalMs / 1000),
-          gpsPoints: apiPoints,
-          metrics: {
-            distanceM: row.distanceM,
-            durationSeconds: row.durationSeconds,
-            avgPaceSecPerKm:
-              row.distanceM > 0 ? row.durationSeconds / (row.distanceM / 1000) : null,
-            avgSpeedMps: row.durationSeconds > 0 ? row.distanceM / row.durationSeconds : 0,
-            calories: row.calories,
-          },
+          id: payload.id,
+          type: payload.type,
+          status: payload.status,
+          startedAt: payload.startedAt,
+          endedAt: payload.endedAt,
+          pausedSeconds: payload.pausedSeconds,
+          gpsPoints: payload.gpsPoints,
+          metrics: payload.metrics,
         });
         await exerciseNative.markSessionSynced(row.id);
         syncedCount++;

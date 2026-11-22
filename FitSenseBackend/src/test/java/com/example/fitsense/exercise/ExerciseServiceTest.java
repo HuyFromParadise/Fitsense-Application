@@ -21,6 +21,8 @@ import com.example.fitsense.exercise.repository.ExerciseSessionRepository;
 import com.example.fitsense.exercise.repository.GpsPointRepository;
 import com.example.fitsense.exercise.service.ExerciseService;
 import com.example.fitsense.exercise.service.ExerciseService.CreateSessionResult;
+import com.example.fitsense.goal.repository.GoalRepository;
+import com.example.fitsense.notification.service.NotificationService;
 import com.example.fitsense.user.dto.UserResponse;
 import com.example.fitsense.user.service.UserService;
 import java.math.BigDecimal;
@@ -45,6 +47,12 @@ class ExerciseServiceTest {
 
     @Mock
     private UserService userService;
+
+    @Mock
+    private GoalRepository goalRepository;
+
+    @Mock
+    private NotificationService notificationService;
 
     @InjectMocks
     private ExerciseService exerciseService;

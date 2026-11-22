@@ -7,7 +7,6 @@ import {
   Modal,
   Animated,
   Alert,
-  Platform,
 } from 'react-native';
 import MapView, { Polyline, Marker } from 'react-native-maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';

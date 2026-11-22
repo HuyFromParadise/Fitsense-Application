@@ -34,7 +34,7 @@ export const MotionSensor: MotionSensorModule = useMock
 
 export const Exercise: ExerciseModule = useMock
   ? mockNative.Exercise
-  : pick('Exercise', mockNative.Exercise);
+  : pick('ExerciseModule', pick('Exercise', mockNative.Exercise));
 
 export const LocalDb: LocalDbModule = useMock
   ? mockNative.LocalDb
