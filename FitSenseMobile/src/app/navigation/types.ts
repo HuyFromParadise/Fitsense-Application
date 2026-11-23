@@ -1,4 +1,5 @@
 export type RootStackParamList = {
+  Onboarding: undefined;
   Auth: undefined;
   Main: undefined;
   SensorMonitor: undefined;

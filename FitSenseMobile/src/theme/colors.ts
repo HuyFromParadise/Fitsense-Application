@@ -12,6 +12,16 @@ export interface ThemeColors {
   warning: string;
   danger: string;
   onDanger: string;
+  // Mascot palette tokens (from FitSense cute turtle reference illustration)
+  turtleSkin: string;
+  turtleSkinHighlight: string;
+  turtleSkinShadow: string;
+  turtleBelly: string;
+  turtleShell: string;
+  turtleShellHighlight: string;
+  turtleShellRim: string;
+  turtleOutline: string;
+  turtleCheek: string;
 }
 
 // Brand Identity: Athletic Black & Electric Flame Orange (Đen - Cam)
@@ -29,6 +39,15 @@ export const lightColors: ThemeColors = {
   warning: '#F59E0B',
   danger: '#EF4444',
   onDanger: '#FFFFFF',
+  turtleSkin: '#B2D942',
+  turtleSkinHighlight: '#C9EA63',
+  turtleSkinShadow: '#93BC2B',
+  turtleBelly: '#E5DF93',
+  turtleShell: '#9D531B',
+  turtleShellHighlight: '#BD6B28',
+  turtleShellRim: '#C86E31',
+  turtleOutline: '#261408',
+  turtleCheek: '#F39A7A',
 };
 
 export const darkColors: ThemeColors = {
@@ -45,4 +64,13 @@ export const darkColors: ThemeColors = {
   warning: '#F59E0B',
   danger: '#EF4444',
   onDanger: '#FFFFFF',
+  turtleSkin: '#B2D942',
+  turtleSkinHighlight: '#C9EA63',
+  turtleSkinShadow: '#93BC2B',
+  turtleBelly: '#E5DF93',
+  turtleShell: '#9D531B',
+  turtleShellHighlight: '#BD6B28',
+  turtleShellRim: '#C86E31',
+  turtleOutline: '#261408',
+  turtleCheek: '#F39A7A',
 };

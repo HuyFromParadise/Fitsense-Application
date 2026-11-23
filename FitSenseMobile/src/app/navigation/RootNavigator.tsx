@@ -7,7 +7,10 @@ import {
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import React, { useEffect, useMemo } from 'react';
 
-import { Loading } from '../../components/common';
+import {
+  AnimatedSplashScreen,
+  OnboardingScreen,
+} from '../../features/onboarding';
 import { SensorMonitorScreen } from '../../features/sensors/screens/SensorMonitorScreen';
 import { SyncGate } from '../../features/sync/SyncGate';
 import {
@@ -17,6 +20,7 @@ import {
 } from '../../features/notifications';
 import { notificationApi } from '../../features/notifications/notificationApi';
 import { useAuthStore } from '../../stores/useAuthStore';
+import { useOnboardingStore } from '../../stores/useOnboardingStore';
 import { useTheme } from '../providers/ThemeProvider';
 import { AuthStack } from './AuthStack';
 import { MainTabs } from './MainTabs';
@@ -27,7 +31,16 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 export function RootNavigator() {
   const isAuthenticated = useAuthStore(state => state.isAuthenticated);
   const initializing = useAuthStore(state => state.initializing);
+  const hasCompletedOnboarding = useOnboardingStore(
+    state => state.hasCompletedOnboarding,
+  );
+  const onboardingHydrated = useOnboardingStore(state => state.hydrated);
+  const hydrateOnboarding = useOnboardingStore(state => state.hydrate);
   const theme = useTheme();
+
+  useEffect(() => {
+    hydrateOnboarding().catch(() => {});
+  }, [hydrateOnboarding]);
 
   const navigationTheme: NavigationTheme = useMemo(() => {
     const base = theme.isDark ? DarkTheme : DefaultTheme;
@@ -62,8 +75,8 @@ export function RootNavigator() {
     return setupPushTokenSync();
   }, [isAuthenticated]);
 
-  if (initializing) {
-    return <Loading message="Đang kiểm tra đăng nhập..." />;
+  if (initializing || !onboardingHydrated) {
+    return <AnimatedSplashScreen message="Đang kiểm tra đăng nhập..." />;
   }
 
   return (
@@ -72,6 +85,8 @@ export function RootNavigator() {
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {isAuthenticated ? (
           <Stack.Screen name="Main" component={MainTabs} />
+        ) : !hasCompletedOnboarding ? (
+          <Stack.Screen name="Onboarding" component={OnboardingScreen} />
         ) : (
           <Stack.Screen name="Auth" component={AuthStack} />
         )}
