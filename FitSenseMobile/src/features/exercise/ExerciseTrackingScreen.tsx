@@ -21,7 +21,7 @@ import {
 } from './exerciseUtils';
 import { ExerciseType } from './types';
 import { useExerciseTracking } from './useExerciseTracking';
-import Geolocation from 'react-native-geolocation-service';
+import Geolocation from '@react-native-community/geolocation'
 
 interface ExerciseTrackingScreenProps {
   navigation: any;
@@ -212,7 +212,8 @@ export const ExerciseTrackingScreen: React.FC<ExerciseTrackingScreenProps> = ({
           ref={mapRef}
           style={styles.map}
           initialRegion={DEFAULT_REGION}
-                                        customMapStyle={isDark ? DARK_MAP_STYLE : undefined}
+          showsUserLocation
+          showsMyLocationButton={false}
         >
           {routeCoords.length > 0 && (
             <Marker
