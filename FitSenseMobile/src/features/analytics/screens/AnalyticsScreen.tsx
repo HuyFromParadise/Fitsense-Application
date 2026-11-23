@@ -317,6 +317,8 @@ export function AnalyticsScreen() {
               <View style={styles.chartWrapper}>
                 {mode === 'weekly' ? (
                   <BarChart
+                    // gifted-charts only draws bars on mount, so remount per period/metric
+                    key={`bar-${data.periodStart}-${chartMetric}`}
                     data={chartData}
                     width={SCREEN_WIDTH - 96}
                     height={190}
@@ -334,6 +336,8 @@ export function AnalyticsScreen() {
                   />
                 ) : (
                   <LineChart
+                    // same mount-only rendering issue for line/area chart
+                    key={`line-${data.periodStart}-${chartMetric}`}
                     data={chartData}
                     width={SCREEN_WIDTH - 96}
                     height={190}

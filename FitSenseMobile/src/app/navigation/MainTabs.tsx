@@ -28,14 +28,14 @@ export function MainTabs() {
           ...typography.title,
           color: colors.text,
         },
-        tabBarStyle: {
-          backgroundColor: colors.surface,
-          borderTopColor: colors.border,
-          borderTopWidth: 1,
-          height: 60,
-          paddingBottom: 8,
-          paddingTop: 6,
-        },
+        // tabBarStyle: {
+        //   backgroundColor: colors.surface,
+        //   borderTopColor: colors.border,
+        //   borderTopWidth: 1,
+        //   height: 60,
+        //   paddingBottom: 8,
+        //   paddingTop: 6,
+        // },
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.textMuted,
         tabBarLabelStyle: {
