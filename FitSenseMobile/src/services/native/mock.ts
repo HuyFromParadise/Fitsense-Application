@@ -92,6 +92,8 @@ export const mockNative: FitSenseNative = {
     markExerciseSyncState: async () => {},
     clearAllActivities: async () => {},
     clearAllExercises: async () => {},
+    getOnboardingCompleted: async () => false,
+    setOnboardingCompleted: async () => {},
   },
   Notification: {
     ensureReady: async () => 'GRANTED',

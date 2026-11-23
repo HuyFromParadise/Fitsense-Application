@@ -23,9 +23,32 @@ class LocalDbModule(private val context: ReactApplicationContext) :
     ReactContextBaseJavaModule(context) {
 
     private val db by lazy { FitSenseDatabase.getInstance(context) }
+    private val prefs by lazy {
+        context.getSharedPreferences("fitsense_app_prefs", android.content.Context.MODE_PRIVATE)
+    }
     private val executor = Executors.newSingleThreadExecutor()
 
     override fun getName(): String = "LocalDb"
+
+    @ReactMethod
+    fun getOnboardingCompleted(promise: Promise) {
+        executor.execute {
+            runCatching { prefs.getBoolean("onboarding_completed", false) }
+                .onSuccess { promise.resolve(it) }
+                .onFailure { promise.resolve(false) }
+        }
+    }
+
+    @ReactMethod
+    fun setOnboardingCompleted(completed: Boolean, promise: Promise) {
+        executor.execute {
+            runCatching {
+                prefs.edit().putBoolean("onboarding_completed", completed).apply()
+            }
+                .onSuccess { promise.resolve(null) }
+                .onFailure { promise.reject("DATABASE_ERROR", it.message, it) }
+        }
+    }
 
     @ReactMethod
     fun getTodayActivity(promise: Promise) {
