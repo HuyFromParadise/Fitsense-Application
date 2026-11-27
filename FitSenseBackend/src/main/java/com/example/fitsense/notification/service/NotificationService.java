@@ -17,12 +17,16 @@ import com.google.firebase.cloud.FirestoreClient;
 import com.google.firebase.messaging.FirebaseMessaging;
 import com.google.firebase.messaging.Message;
 import com.google.firebase.messaging.Notification;
+import java.time.DayOfWeek;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -42,6 +46,7 @@ public class NotificationService {
     private final UserRepository userRepository;
     private final NotificationSettingsRepository settingsRepository;
     private final JdbcTemplate jdbcTemplate;
+    private final Set<String> sentGoalNotifications = ConcurrentHashMap.newKeySet();
 
     @Transactional
     public void registerDevice(CurrentUser authUser, DeviceRegistrationRequest request) {
@@ -116,9 +121,10 @@ public class NotificationService {
         }
 
         int sentCount = 0;
+        Set<String> seenTokens = new HashSet<>();
         for (UserDeviceEntity device : devices) {
             String token = device.getFcmToken();
-            if (token == null || token.isBlank()) continue;
+            if (token == null || token.isBlank() || !seenTokens.add(token)) continue;
 
             if (FirebaseApp.getApps().isEmpty()) {
                 log.info("[MOCK PUSH] To user={}, device={}, title='{}', body='{}'",
@@ -154,6 +160,16 @@ public class NotificationService {
                 .map(NotificationSettingsEntity::isGoalAchievementsEnabled)
                 .orElse(true);
         if (!enabled) return;
+
+        LocalDate today = LocalDate.now();
+        LocalDate periodKey = goalType != null && goalType.startsWith("WEEKLY_")
+                ? today.with(DayOfWeek.MONDAY)
+                : today;
+        String dedupeKey = userId + ":" + goalType + ":" + periodKey;
+        if (!sentGoalNotifications.add(dedupeKey)) {
+            log.debug("Skipping duplicate goal achievement notification: {}", dedupeKey);
+            return;
+        }
 
         String title = "🎉 Mục tiêu hoàn thành!";
         String body = String.format("Chúc mừng bạn đã hoàn thành mục tiêu %s với chỉ số %.0f!", goalType, targetValue);
