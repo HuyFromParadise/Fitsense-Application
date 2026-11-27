@@ -1,11 +1,18 @@
 import { useIsFocused } from '@react-navigation/native';
-import { Flame, MapPin, Timer } from 'lucide-react-native';
+import {
+  CheckCircle2,
+  Flame,
+  Footprints,
+  MapPin,
+  Radio,
+  Timer,
+} from 'lucide-react-native';
 import React, { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 import { Linking, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 
 import { useTheme } from '../../../app/providers/ThemeProvider';
-import { Button, Card } from '../../../components/common';
+import { Button, Card, MetricTile } from '../../../components/common';
 import { LocalDb } from '../../../services/native';
 import { syncManager } from '../../../services/sync';
 import { useTodayActivity } from '../../../stores/useTodayActivity';
@@ -26,11 +33,13 @@ const GoalRing = memo(function GoalRing({
   steps: number;
   goal: number;
 }) {
-  const { colors, typography } = useTheme();
-  const size = 190;
+  const { colors, radius, spacing, typography } = useTheme();
+  const size = 204;
   const stroke = 14;
-  const radius = (size - stroke) / 2;
-  const circumference = 2 * Math.PI * radius;
+  const ringRadius = (size - stroke) / 2;
+  const circumference = 2 * Math.PI * ringRadius;
+  const isCompleted = progress >= 1;
+  const ringColor = isCompleted ? colors.success : colors.primary;
 
   return (
     <View style={[styles.ring, { width: size, height: size }]}>
@@ -38,16 +47,16 @@ const GoalRing = memo(function GoalRing({
         <Circle
           cx={size / 2}
           cy={size / 2}
-          r={radius}
-          stroke={colors.border}
+          r={ringRadius}
+          stroke={colors.surfaceAlt}
           strokeWidth={stroke}
           fill="none"
         />
         <Circle
           cx={size / 2}
           cy={size / 2}
-          r={radius}
-          stroke={colors.primary}
+          r={ringRadius}
+          stroke={ringColor}
           strokeWidth={stroke}
           fill="none"
           strokeLinecap="round"
@@ -56,12 +65,23 @@ const GoalRing = memo(function GoalRing({
           transform={`rotate(-90 ${size / 2} ${size / 2})`}
         />
       </Svg>
-      <View style={styles.ringCenter}>
+      <View style={[styles.ringCenter, { gap: spacing.xs }]}>
+        <View
+          style={[
+            styles.ringIconBadge,
+            {
+              backgroundColor: isCompleted ? colors.surfaceAlt : colors.primaryMuted,
+              borderRadius: radius.pill,
+              padding: spacing.xs,
+            },
+          ]}>
+          <Footprints size={18} color={ringColor} strokeWidth={2.2} />
+        </View>
         <Text
           style={[
             typography.hero,
             tabularNums,
-            { color: colors.text, fontSize: 32, fontWeight: '700' },
+            { color: colors.text },
           ]}>
           {stepsFormatter.format(steps)}
         </Text>
@@ -69,34 +89,11 @@ const GoalRing = memo(function GoalRing({
           style={[
             typography.caption,
             tabularNums,
-            { color: colors.primary, fontWeight: '600' },
+            { color: colors.textMuted, fontWeight: '600' },
           ]}>
           / {stepsFormatter.format(goal)} bước
         </Text>
       </View>
-    </View>
-  );
-});
-
-const StatItem = memo(function StatItem({
-  label,
-  value,
-  icon,
-}: {
-  label: string;
-  value: string;
-  icon: React.ReactNode;
-}) {
-  const { colors, spacing, typography } = useTheme();
-  return (
-    <View style={[styles.stat, { gap: spacing.xs }]}>
-      {icon}
-      <Text style={[typography.heading, tabularNums, { color: colors.text }]}>
-        {value}
-      </Text>
-      <Text style={[typography.caption, { color: colors.textMuted }]}>
-        {label}
-      </Text>
     </View>
   );
 });
@@ -112,7 +109,7 @@ export interface StepHeroCounterProps {
 export const StepHeroCounter = memo(function StepHeroCounter({
   profile,
 }: StepHeroCounterProps) {
-  const { colors, spacing, typography } = useTheme();
+  const { colors, radius, spacing, typography } = useTheme();
   const isFocused = useIsFocused();
 
   const { snapshot, status, permission, requestPermission, isListening } = useStepCounter();
@@ -187,40 +184,105 @@ export const StepHeroCounter = memo(function StepHeroCounter({
   };
 
   const permissionBlocked = status === 'PERMISSION_DENIED' || permission !== 'GRANTED';
+  const pct = Math.round(metrics.goalProgress * 100);
+  const remainingSteps = Math.max(0, metrics.goalSteps - metrics.steps);
+  const isCompleted = metrics.goalProgress >= 1;
 
   return (
     <View style={{ gap: spacing.lg }}>
-      <Card style={styles.hero}>
+      <Card style={[styles.hero, { gap: spacing.md }]}>
         <GoalRing
           progress={metrics.goalProgress}
           steps={metrics.steps}
           goal={metrics.goalSteps}
         />
+
+        <View style={[styles.heroMetaRow, { gap: spacing.sm }]}>
+          <View
+            style={[
+              styles.goalBadge,
+              {
+                backgroundColor: isCompleted ? colors.surfaceAlt : colors.primaryMuted,
+                borderRadius: radius.pill,
+                paddingHorizontal: spacing.md,
+                paddingVertical: spacing.xs,
+                gap: spacing.xs,
+              },
+            ]}>
+            {isCompleted ? (
+              <CheckCircle2 size={14} color={colors.success} strokeWidth={2.2} />
+            ) : null}
+            <Text
+              style={[
+                typography.label,
+                tabularNums,
+                { color: isCompleted ? colors.success : colors.primary },
+              ]}>
+              {pct}% mục tiêu ngày
+            </Text>
+          </View>
+
+          {status === 'AVAILABLE' && !permissionBlocked ? (
+            <View
+              style={[
+                styles.liveBadge,
+                {
+                  backgroundColor: colors.surfaceAlt,
+                  borderRadius: radius.pill,
+                  paddingHorizontal: spacing.sm,
+                  paddingVertical: spacing.xs,
+                  gap: spacing.xs,
+                },
+              ]}>
+              <Radio
+                size={12}
+                color={isListening ? colors.success : colors.textMuted}
+                strokeWidth={2.2}
+              />
+              <Text
+                style={[
+                  typography.caption,
+                  { color: isListening ? colors.success : colors.textMuted },
+                ]}>
+                {isListening ? 'Đang đếm' : 'Tạm dừng'}
+              </Text>
+            </View>
+          ) : null}
+        </View>
+
         <Text style={[typography.caption, tabularNums, { color: colors.textMuted }]}>
-          {Math.round(metrics.goalProgress * 100)}% mục tiêu ngày
+          {isCompleted
+            ? 'Tuyệt vời! Bạn đã đạt mục tiêu bước chân hôm nay.'
+            : `Còn ${stepsFormatter.format(remainingSteps)} bước nữa để hoàn thành mục tiêu`}
         </Text>
       </Card>
 
-      <Card style={styles.row}>
-        <StatItem
-          icon={<MapPin size={18} color={colors.primary} strokeWidth={2} />}
-          label="km"
+      <View style={[styles.metricsRow, { gap: spacing.sm }]}>
+        <MetricTile
+          icon={<MapPin size={14} color={colors.primary} strokeWidth={2} />}
+          label="Quãng đường"
           value={(metrics.distanceM / 1000).toFixed(2)}
+          unit="km"
+          style={styles.flex}
         />
-        <StatItem
-          icon={<Flame size={18} color={colors.primary} strokeWidth={2} />}
-          label="kcal"
+        <MetricTile
+          icon={<Flame size={14} color={colors.primary} strokeWidth={2} />}
+          label="Calo"
           value={String(Math.round(metrics.calories))}
+          unit="kcal"
+          style={styles.flex}
         />
-        <StatItem
-          icon={<Timer size={18} color={colors.primary} strokeWidth={2} />}
-          label="phút vận động"
+        <MetricTile
+          icon={<Timer size={14} color={colors.primary} strokeWidth={2} />}
+          label="Vận động"
           value={String(metrics.activeMinutes)}
+          unit="phút"
+          style={styles.flex}
         />
-      </Card>
+      </View>
 
       {status === 'UNAVAILABLE' ? (
-        <Card style={{ gap: spacing.sm }}>
+        <Card style={{ gap: spacing.xs }}>
           <Text style={[typography.label, { color: colors.text }]}>
             Thiết bị không có cảm biến đếm bước
           </Text>
@@ -248,19 +310,17 @@ export const StepHeroCounter = memo(function StepHeroCounter({
             <Button title="Cấp quyền" onPress={handlePermission} />
           )}
         </Card>
-      ) : (
-        <Text style={[typography.caption, { color: colors.textMuted }]}>
-          {isListening ? 'Đang theo dõi bước chân' : 'Chưa theo dõi bước chân'}
-        </Text>
-      )}
+      ) : null}
     </View>
   );
 });
 
 const styles = StyleSheet.create({
+  flex: {
+    flex: 1,
+  },
   hero: {
     alignItems: 'center',
-    gap: 8,
   },
   ring: {
     alignItems: 'center',
@@ -271,12 +331,25 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     position: 'absolute',
   },
-  row: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  stat: {
+  ringIconBadge: {
     alignItems: 'center',
-    flex: 1,
+    justifyContent: 'center',
+  },
+  heroMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+  },
+  goalBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  liveBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  metricsRow: {
+    flexDirection: 'row',
   },
 });

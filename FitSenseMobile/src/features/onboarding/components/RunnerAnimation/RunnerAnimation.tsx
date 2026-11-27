@@ -2,13 +2,9 @@ import React from 'react';
 import { Animated, StyleSheet, View } from 'react-native';
 import Svg, {
   Circle,
-  Defs,
   G,
-  LinearGradient,
   Path,
-  Polygon,
   Rect,
-  Stop,
 } from 'react-native-svg';
 
 import { useTheme } from '../../../../app/providers/ThemeProvider';
@@ -22,6 +18,7 @@ import { TurtleSmoke } from '../TurtleSmoke';
 
 export interface RunnerAnimationProps {
   height?: number;
+  fullScreen?: boolean;
 }
 
 // Stage dimensions in original Runner.svg coordinate units (shifted by -150, -175)
@@ -31,14 +28,16 @@ const STAGE_SCALE = 0.54;
 /**
  * Splash Screen Runner Animation built from `assets/images/Runner.svg`
  * with FitSense animated background:
- * - Sky gradient & ambient sun glow
- * - Far parallax hills & near parallax trees
+ * - Seamless far parallax hills & stylized geometric trees
  * - Seamless scrolling `AnimatedRoad`
  * - Billowing `TurtleSmoke` dust trail behind the runner
  * - Articulated `Runner.svg` figure driven on the native UI thread (`useNativeDriver: true`)
  */
-export function RunnerAnimation({ height = 248 }: RunnerAnimationProps) {
-  const { colors, radius } = useTheme();
+export function RunnerAnimation({
+  height = 248,
+  fullScreen = false,
+}: RunnerAnimationProps) {
+  const { colors } = useTheme();
   const anim = useRunnerAnimation(true);
 
   return (
@@ -48,38 +47,14 @@ export function RunnerAnimation({ height = 248 }: RunnerAnimationProps) {
       accessibilityLabel="FitSense animated runner sprinting on a fitness track"
       style={[
         styles.sceneContainer,
+        fullScreen ? StyleSheet.absoluteFill : { height },
+        fullScreen ? styles.sceneCentered : styles.sceneBottom,
         {
-          height,
-          backgroundColor: colors.surface,
-          borderColor: colors.border,
-          borderRadius: radius.lg,
+          backgroundColor: colors.background,
         },
       ]}>
-      {/* Ambient sky & glow backdrop */}
-      <View style={styles.skyBackdrop} pointerEvents="none">
-        <Svg
-          width="100%"
-          height="100%"
-          viewBox="0 0 320 248"
-          preserveAspectRatio="none">
-          <Defs>
-            <LinearGradient id="runnerSkyGrad" x1="0" y1="0" x2="0" y2="1">
-              <Stop offset="0" stopColor={colors.background} stopOpacity="0.95" />
-              <Stop offset="0.65" stopColor={colors.surface} stopOpacity="0.9" />
-              <Stop offset="1" stopColor={colors.surfaceAlt} stopOpacity="1" />
-            </LinearGradient>
-            <LinearGradient id="runnerGlowGrad" x1="0.5" y1="0" x2="0.5" y2="1">
-              <Stop offset="0" stopColor={colors.primary} stopOpacity="0.26" />
-              <Stop offset="1" stopColor={colors.warning} stopOpacity="0" />
-            </LinearGradient>
-          </Defs>
-          <Rect x="0" y="0" width="320" height="248" fill="url(#runnerSkyGrad)" />
-          <Circle cx="242" cy="54" r="58" fill="url(#runnerGlowGrad)" />
-          <Circle cx="242" cy="54" r="18" fill={colors.primary} fillOpacity="0.28" />
-        </Svg>
-      </View>
-
-      {/* Far parallax hills */}
+      <View style={[styles.stageBox, { height }]}>
+      {/* Far parallax hills (seamless 320px tile) */}
       <Animated.View
         pointerEvents="none"
         style={[
@@ -87,51 +62,28 @@ export function RunnerAnimation({ height = 248 }: RunnerAnimationProps) {
           styles.farLayer,
           { transform: [{ translateX: anim.farHillsTranslateX }] },
         ]}>
-        <Svg width={FAR_SCENERY_WIDTH * 2} height={90} viewBox="0 0 640 90">
+        <Svg width={FAR_SCENERY_WIDTH * 2} height={110} viewBox="0 0 640 110">
           {[0, FAR_SCENERY_WIDTH].map(offset => (
             <G key={`far-${offset}`} transform={`translate(${offset}, 0)`}>
+              {/* Distant ridge */}
               <Path
-                d="M0 90 L0 56 Q48 20 108 52 T220 42 T320 56 L320 90 Z"
+                d="M0 110 L0 64 Q44 26 96 52 T204 38 T320 64 L320 110 Z"
                 fill={colors.surfaceAlt}
-                fillOpacity="0.68"
+                fillOpacity="0.65"
               />
+              {/* Subtle athletic rim highlight along distant ridge */}
               <Path
-                d="M0 90 L0 68 Q80 34 160 62 T320 68 L320 90 Z"
-                fill={colors.primary}
-                fillOpacity="0.14"
+                d="M0 64 Q44 26 96 52 T204 38 T320 64"
+                fill="none"
+                stroke={colors.primary}
+                strokeOpacity="0.2"
+                strokeWidth="1.5"
               />
-            </G>
-          ))}
-        </Svg>
-      </Animated.View>
-
-      {/* Near parallax trees */}
-      <Animated.View
-        pointerEvents="none"
-        style={[
-          styles.parallaxLayer,
-          styles.nearLayer,
-          { transform: [{ translateX: anim.nearTreesTranslateX }] },
-        ]}>
-        <Svg width={NEAR_SCENERY_WIDTH * 2} height={86} viewBox="0 0 640 86">
-          {[0, NEAR_SCENERY_WIDTH].map(offset => (
-            <G key={`near-${offset}`} transform={`translate(${offset}, 0)`}>
-              <Rect x="36" y="60" width="6" height="22" rx="2" fill={colors.border} />
-              <Polygon
-                points="39,20 18,62 60,62"
-                fill={colors.success}
-                fillOpacity="0.22"
-              />
-              <Polygon
-                points="39,32 23,62 55,62"
-                fill={colors.success}
-                fillOpacity="0.32"
-              />
-              <Rect x="276" y="58" width="6" height="24" rx="2" fill={colors.border} />
-              <Polygon
-                points="279,16 256,62 302,62"
-                fill={colors.success}
-                fillOpacity="0.26"
+              {/* Midground rolling hill */}
+              <Path
+                d="M0 110 L0 78 Q72 48 152 72 T320 78 L320 110 Z"
+                fill={colors.border}
+                fillOpacity="0.4"
               />
             </G>
           ))}
@@ -451,6 +403,7 @@ export function RunnerAnimation({ height = 248 }: RunnerAnimationProps) {
           </Animated.View>
         </Animated.View>
       </Animated.View>
+      </View>
     </View>
   );
 }
@@ -459,17 +412,20 @@ const styles = StyleSheet.create({
   sceneContainer: {
     width: '100%',
     overflow: 'hidden',
-    borderWidth: 1,
+    position: 'relative',
+    alignItems: 'center',
+  },
+  sceneCentered: {
+    justifyContent: 'center',
+  },
+  sceneBottom: {
+    justifyContent: 'flex-end',
+  },
+  stageBox: {
+    width: '100%',
     position: 'relative',
     justifyContent: 'flex-end',
     alignItems: 'center',
-  },
-  skyBackdrop: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    bottom: 0,
-    left: 0,
   },
   parallaxLayer: {
     position: 'absolute',
@@ -480,7 +436,7 @@ const styles = StyleSheet.create({
     bottom: 54,
   },
   nearLayer: {
-    bottom: 52,
+    bottom: 54,
   },
   groundShadow: {
     position: 'absolute',
