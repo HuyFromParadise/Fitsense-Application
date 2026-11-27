@@ -1,6 +1,18 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { FlashList } from '@shopify/flash-list';
-import React, { memo, useCallback, useEffect, useState } from 'react';
+import {
+  CalendarCheck,
+  CheckCircle2,
+  Flame,
+  Footprints,
+  Pencil,
+  Route,
+  Target,
+  Timer,
+  Trash2,
+  Trophy,
+} from 'lucide-react-native';
+import React, { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import {
   Alert,
@@ -8,6 +20,7 @@ import {
   LayoutAnimation,
   Platform,
   Pressable,
+  RefreshControl,
   StyleSheet,
   Text,
   UIManager,
@@ -23,6 +36,7 @@ import {
   EmptyState,
   ErrorState,
   Input,
+  MetricTile,
   SkeletonLoader,
 } from '../../../components/common';
 import { useTodayActivity } from '../../../stores/useTodayActivity';
@@ -48,7 +62,24 @@ const GOAL_TYPES = [
   'WEEKLY_EXERCISE_COUNT',
 ] as const;
 
+const GOAL_ICONS: Record<GoalType, typeof Footprints> = {
+  DAILY_STEPS: Footprints,
+  DAILY_DISTANCE: Route,
+  DAILY_CALORIES: Flame,
+  WEEKLY_EXERCISE_DURATION: Timer,
+  WEEKLY_EXERCISE_COUNT: CalendarCheck,
+};
+
+const GOAL_PRESETS: Record<GoalType, string[]> = {
+  DAILY_STEPS: ['6000', '8000', '10000'],
+  DAILY_DISTANCE: ['3000', '5000', '10000'],
+  DAILY_CALORIES: ['300', '500', '800'],
+  WEEKLY_EXERCISE_DURATION: ['90', '150', '210'],
+  WEEKLY_EXERCISE_COUNT: ['3', '5', '7'],
+};
+
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+const countFormatter = new Intl.NumberFormat('vi-VN');
 
 const formSchema = z
   .object({
@@ -102,6 +133,7 @@ const GoalForm = memo(function GoalForm({
   });
 
   const type = watch('type');
+  const currentTarget = watch('targetValue');
 
   useEffect(() => {
     reset({
@@ -113,14 +145,32 @@ const GoalForm = memo(function GoalForm({
   }, [goal, reset]);
 
   return (
-    <Card style={{ gap: spacing.sm }}>
-      <Text style={[typography.label, { color: colors.text }]}>
-        {goal ? 'Sửa mục tiêu' : 'Thêm mục tiêu'}
-      </Text>
+    <Card style={{ gap: spacing.md }}>
+      <View style={[styles.formHeader, { gap: spacing.sm }]}>
+        <View
+          style={[
+            styles.iconBadge,
+            {
+              backgroundColor: colors.primaryMuted,
+              borderRadius: radius.md,
+            },
+          ]}>
+          <Target size={18} color={colors.primary} strokeWidth={2} />
+        </View>
+        <View style={styles.flex}>
+          <Text style={[typography.heading, { color: colors.text }]}>
+            {goal ? 'Sửa mục tiêu' : 'Thêm mục tiêu mới'}
+          </Text>
+          <Text style={[typography.caption, { color: colors.textMuted }]}>
+            Chọn loại chỉ số và ngưỡng mục tiêu phù hợp
+          </Text>
+        </View>
+      </View>
 
       <View style={styles.chips}>
         {GOAL_TYPES.map(option => {
           const isSelected = type === option;
+          const IconComponent = GOAL_ICONS[option];
           return (
             <Pressable
               key={option}
@@ -132,16 +182,22 @@ const GoalForm = memo(function GoalForm({
                 {
                   borderColor: isSelected ? colors.primary : colors.border,
                   borderRadius: radius.md,
-                  backgroundColor: isSelected ? colors.primaryMuted : colors.surface,
+                  backgroundColor: isSelected ? colors.primaryMuted : colors.surfaceAlt,
                   opacity: pressed ? 0.85 : 1,
+                  gap: spacing.xs,
                 },
               ]}>
+              <IconComponent
+                size={14}
+                color={isSelected ? colors.primary : colors.textMuted}
+                strokeWidth={2}
+              />
               <Text
                 style={[
                   typography.caption,
                   {
                     color: isSelected ? colors.primary : colors.textMuted,
-                    fontWeight: isSelected ? '700' : '400',
+                    fontWeight: isSelected ? '700' : '500',
                   },
                 ]}>
                 {GOAL_TYPE_LABEL[option]}
@@ -149,6 +205,47 @@ const GoalForm = memo(function GoalForm({
             </Pressable>
           );
         })}
+      </View>
+
+      <View style={{ gap: spacing.xs }}>
+        <Text style={[typography.caption, { color: colors.textMuted }]}>
+          Gợi ý nhanh
+        </Text>
+        <View style={[styles.row, { gap: spacing.sm }]}>
+          {GOAL_PRESETS[type].map(preset => {
+            const active = currentTarget === preset;
+            return (
+              <Pressable
+                key={preset}
+                accessibilityRole="button"
+                accessibilityState={{ selected: active }}
+                onPress={() =>
+                  setValue('targetValue', preset, { shouldValidate: true })
+                }
+                style={({ pressed }) => [
+                  styles.presetChip,
+                  {
+                    backgroundColor: active ? colors.primaryMuted : colors.surfaceAlt,
+                    borderColor: active ? colors.primary : colors.border,
+                    borderRadius: radius.pill,
+                    opacity: pressed ? 0.85 : 1,
+                  },
+                ]}>
+                <Text
+                  style={[
+                    typography.caption,
+                    tabularNums,
+                    {
+                      color: active ? colors.primary : colors.text,
+                      fontWeight: active ? '700' : '500',
+                    },
+                  ]}>
+                  {countFormatter.format(Number(preset))}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
       </View>
 
       <Controller
@@ -172,42 +269,52 @@ const GoalForm = memo(function GoalForm({
         )}
       />
 
-      <Controller
-        control={control}
-        name="startsOn"
-        render={({ field: { onChange, onBlur, value } }) => (
-          <Input
-            label="Bắt đầu (yyyy-MM-dd)"
-            autoCapitalize="none"
-            value={value}
-            onChangeText={onChange}
-            onBlur={onBlur}
-            error={errors.startsOn?.message}
+      <View style={[styles.twoCol, { gap: spacing.sm }]}>
+        <View style={styles.flex}>
+          <Controller
+            control={control}
+            name="startsOn"
+            render={({ field: { onChange, onBlur, value } }) => (
+              <Input
+                label="Bắt đầu"
+                placeholder="yyyy-MM-dd"
+                autoCapitalize="none"
+                value={value}
+                onChangeText={onChange}
+                onBlur={onBlur}
+                error={errors.startsOn?.message}
+              />
+            )}
           />
-        )}
-      />
-
-      <Controller
-        control={control}
-        name="endsOn"
-        render={({ field: { onChange, onBlur, value } }) => (
-          <Input
-            label="Kết thúc (để trống nếu không có)"
-            autoCapitalize="none"
-            value={value}
-            onChangeText={onChange}
-            onBlur={onBlur}
-            error={errors.endsOn?.message}
+        </View>
+        <View style={styles.flex}>
+          <Controller
+            control={control}
+            name="endsOn"
+            render={({ field: { onChange, onBlur, value } }) => (
+              <Input
+                label="Kết thúc (tùy chọn)"
+                placeholder="yyyy-MM-dd"
+                autoCapitalize="none"
+                value={value}
+                onChangeText={onChange}
+                onBlur={onBlur}
+                error={errors.endsOn?.message}
+              />
+            )}
           />
-        )}
-      />
+        </View>
+      </View>
 
-      {error ? <Text style={[typography.caption, { color: colors.danger }]}>{error}</Text> : null}
+      {error ? (
+        <Text style={[typography.caption, { color: colors.danger }]}>{error}</Text>
+      ) : null}
 
       <View style={[styles.row, { gap: spacing.sm }]}>
         <Button
-          title={goal ? 'Lưu' : 'Tạo'}
+          title={goal ? 'Lưu thay đổi' : 'Tạo mục tiêu'}
           loading={submitting}
+          style={styles.flex}
           onPress={handleSubmit(values =>
             onSubmit({
               type: values.type,
@@ -238,12 +345,65 @@ const GoalRowItem = memo(function GoalRowItem({
   onDelete: (goal: Goal) => void;
 }) {
   const { colors, radius, spacing, typography } = useTheme();
+  const IconComponent = GOAL_ICONS[goal.type];
+  const isCompleted = progress >= 1;
+  const pct = Math.min(100, Math.round(progress * 100));
+  const scopeLabel = isWeekly(goal.type) ? 'Hằng tuần' : 'Hằng ngày';
 
   return (
-    <Card style={{ gap: spacing.sm, marginBottom: spacing.md }}>
-      <Text style={[typography.label, { color: colors.text }]}>
-        {GOAL_TYPE_LABEL[goal.type]}
-      </Text>
+    <Card style={{ gap: spacing.md, marginBottom: spacing.md }}>
+      <View style={[styles.cardHeader, { gap: spacing.sm }]}>
+        <View
+          style={[
+            styles.iconBadge,
+            {
+              backgroundColor: isCompleted ? colors.surfaceAlt : colors.primaryMuted,
+              borderRadius: radius.md,
+            },
+          ]}>
+          <IconComponent
+            size={20}
+            color={isCompleted ? colors.success : colors.primary}
+            strokeWidth={2}
+          />
+        </View>
+
+        <View style={styles.flex}>
+          <Text
+            numberOfLines={1}
+            style={[typography.heading, { color: colors.text }]}>
+            {GOAL_TYPE_LABEL[goal.type]}
+          </Text>
+          <Text style={[typography.caption, { color: colors.textMuted }]}>
+            {scopeLabel}
+          </Text>
+        </View>
+
+        <View
+          style={[
+            styles.pctPill,
+            {
+              backgroundColor: isCompleted ? colors.surfaceAlt : colors.primaryMuted,
+              borderRadius: radius.pill,
+              paddingHorizontal: spacing.sm,
+              paddingVertical: spacing.xs,
+              gap: spacing.xs,
+            },
+          ]}>
+          {isCompleted ? (
+            <CheckCircle2 size={14} color={colors.success} strokeWidth={2.2} />
+          ) : null}
+          <Text
+            style={[
+              typography.label,
+              tabularNums,
+              { color: isCompleted ? colors.success : colors.primary },
+            ]}>
+            {pct}%
+          </Text>
+        </View>
+      </View>
+
       <View
         style={[
           styles.track,
@@ -253,28 +413,75 @@ const GoalRowItem = memo(function GoalRowItem({
           style={[
             styles.fill,
             {
-              backgroundColor: progress >= 1 ? colors.success : colors.primary,
+              backgroundColor: isCompleted ? colors.success : colors.primary,
               borderRadius: radius.pill,
-              width: `${Math.min(100, Math.round(progress * 100))}%`,
+              width: `${pct}%`,
             },
           ]}
         />
       </View>
-      <Text style={[typography.caption, tabularNums, { color: colors.textMuted }]}>
-        {progressLabel}
-      </Text>
-      {goal.endsOn ? (
-        <Text style={[typography.caption, tabularNums, { color: colors.textMuted }]}>
-          Đến {goal.endsOn}
+
+      <View style={[styles.metaRow, { gap: spacing.sm }]}>
+        <Text
+          style={[
+            typography.body,
+            tabularNums,
+            { color: colors.text, fontWeight: '600' },
+          ]}>
+          {progressLabel}
         </Text>
-      ) : null}
-      <View style={[styles.row, { gap: spacing.sm }]}>
-        <Button
-          title="Sửa"
-          variant="secondary"
+        <Text
+          style={[
+            typography.caption,
+            tabularNums,
+            { color: colors.textMuted },
+          ]}>
+          {goal.endsOn ? `Đến ${goal.endsOn}` : `Từ ${goal.startsOn}`}
+        </Text>
+      </View>
+
+      <View
+        style={[
+          styles.actionRow,
+          {
+            borderTopColor: colors.border,
+            paddingTop: spacing.sm,
+            gap: spacing.sm,
+          },
+        ]}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`Sửa ${GOAL_TYPE_LABEL[goal.type]}`}
           onPress={() => onEdit(goal)}
-        />
-        <Button title="Xóa" variant="danger" onPress={() => onDelete(goal)} />
+          style={({ pressed }) => [
+            styles.actionBtn,
+            {
+              backgroundColor: colors.surfaceAlt,
+              borderRadius: radius.md,
+              opacity: pressed ? 0.8 : 1,
+              gap: spacing.xs,
+            },
+          ]}>
+          <Pencil size={14} color={colors.text} strokeWidth={2} />
+          <Text style={[typography.label, { color: colors.text }]}>Sửa</Text>
+        </Pressable>
+
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`Xóa ${GOAL_TYPE_LABEL[goal.type]}`}
+          onPress={() => onDelete(goal)}
+          style={({ pressed }) => [
+            styles.actionBtn,
+            {
+              backgroundColor: colors.surfaceAlt,
+              borderRadius: radius.md,
+              opacity: pressed ? 0.8 : 1,
+              gap: spacing.xs,
+            },
+          ]}>
+          <Trash2 size={14} color={colors.danger} strokeWidth={2} />
+          <Text style={[typography.label, { color: colors.danger }]}>Xóa</Text>
+        </Pressable>
       </View>
     </Card>
   );
@@ -319,6 +526,17 @@ export function GoalsScreen() {
     [remove],
   );
 
+  const handleRefresh = useCallback(() => {
+    refreshDaily().catch(() => {});
+    list.refetch();
+  }, [refreshDaily, list]);
+
+  const completedCount = useMemo(
+    () =>
+      goals.filter(goal => goalProgress(goal, daily, weekly) >= 1).length,
+    [goals, daily, weekly],
+  );
+
   const keyExtractor = useCallback((item: Goal) => String(item.id), []);
 
   const renderItem = useCallback(
@@ -336,11 +554,16 @@ export function GoalsScreen() {
 
   const listHeader = (
     <View style={{ gap: spacing.lg, marginBottom: spacing.lg }}>
-      <View style={styles.header}>
-        <Text style={[typography.heading, { color: colors.text }]}>Mục tiêu</Text>
+      <View style={[styles.header, { gap: spacing.sm }]}>
+        <View style={styles.flex}>
+          <Text style={[typography.title, { color: colors.text }]}>Mục tiêu</Text>
+          <Text style={[typography.caption, { color: colors.textMuted }]}>
+            Theo dõi tiến độ ngày & tuần
+          </Text>
+        </View>
         {!showForm ? (
           <Button
-            title="Thêm"
+            title="+ Thêm"
             variant="primary"
             onPress={() => {
               setEditing(null);
@@ -349,6 +572,24 @@ export function GoalsScreen() {
           />
         ) : null}
       </View>
+
+      {!list.isLoading && !list.isError && goals.length > 0 ? (
+        <View style={[styles.summaryRow, { gap: spacing.sm }]}>
+          <MetricTile
+            icon={<Trophy size={14} color={colors.primary} strokeWidth={2} />}
+            label="Hoàn thành"
+            value={`${completedCount}/${goals.length}`}
+            style={styles.flex}
+          />
+          <MetricTile
+            icon={<Target size={14} color={colors.primary} strokeWidth={2} />}
+            label="Đang theo dõi"
+            value={goals.length}
+            unit="mục tiêu"
+            style={styles.flex}
+          />
+        </View>
+      ) : null}
 
       {showForm ? (
         <GoalForm
@@ -369,12 +610,12 @@ export function GoalsScreen() {
       {list.isLoading ? (
         <View style={{ gap: spacing.md }}>
           <Card style={{ gap: spacing.sm }}>
-            <SkeletonLoader width="45%" height={16} />
+            <SkeletonLoader width="50%" height={18} />
             <SkeletonLoader width="100%" height={10} />
             <SkeletonLoader width="60%" height={14} />
           </Card>
           <Card style={{ gap: spacing.sm }}>
-            <SkeletonLoader width="50%" height={16} />
+            <SkeletonLoader width="45%" height={18} />
             <SkeletonLoader width="100%" height={10} />
             <SkeletonLoader width="55%" height={14} />
           </Card>
@@ -415,6 +656,13 @@ export function GoalsScreen() {
           keyExtractor={keyExtractor}
           renderItem={renderItem}
           keyboardShouldPersistTaps="handled"
+          refreshControl={
+            <RefreshControl
+              refreshing={list.isRefetching}
+              onRefresh={handleRefresh}
+              tintColor={colors.primary}
+            />
+          }
           contentContainerStyle={{
             padding: spacing.lg,
             paddingBottom: Math.max(insets.bottom, spacing.lg),
@@ -432,10 +680,26 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  flex: {
+    flex: 1,
+  },
   header: {
     alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'space-between',
+  },
+  summaryRow: {
+    flexDirection: 'row',
+  },
+  formHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  iconBadge: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   chips: {
     flexDirection: 'row',
@@ -444,13 +708,33 @@ const styles = StyleSheet.create({
   },
   chip: {
     minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
     paddingHorizontal: 12,
     paddingVertical: 8,
   },
+  presetChip: {
+    minHeight: 36,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  twoCol: {
+    flexDirection: 'row',
+  },
   row: {
     flexDirection: 'row',
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  pctPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   track: {
     height: 10,
@@ -458,5 +742,21 @@ const styles = StyleSheet.create({
   },
   fill: {
     height: '100%',
+  },
+  metaRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  actionRow: {
+    flexDirection: 'row',
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  actionBtn: {
+    flex: 1,
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
