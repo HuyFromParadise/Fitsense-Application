@@ -1,17 +1,29 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { getAuth, signInWithEmailAndPassword } from '@react-native-firebase/auth';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { Alert, KeyboardAvoidingView, Platform, ScrollView, Text } from 'react-native';
+import {
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { z } from 'zod';
 
-import { useTheme } from '../../../app/providers/ThemeProvider';
 import type { AuthStackParamList } from '../../../app/navigation/types';
+import { useTheme } from '../../../app/providers/ThemeProvider';
 import { Button, Card, Input } from '../../../components/common';
-import { authErrorMessage } from './authErrors';
+import { AuthBrandHeader } from '../components/AuthBrandHeader';
+import { PasswordInput } from '../components/PasswordInput';
 import { signInWithGoogle } from '../googleSignIn';
+import { authErrorMessage } from './authErrors';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'Login'>;
 
@@ -26,6 +38,7 @@ export function LoginScreen({ navigation }: Props) {
   const { colors, spacing, typography } = useTheme();
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const passwordRef = useRef<React.ComponentRef<typeof TextInput>>(null);
 
   const {
     control,
@@ -70,9 +83,9 @@ export function LoginScreen({ navigation }: Props) {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+    <SafeAreaView style={[styles.flex, { backgroundColor: colors.background }]}>
       <KeyboardAvoidingView
-        style={{ flex: 1 }}
+        style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView
           keyboardShouldPersistTaps="handled"
@@ -80,46 +93,92 @@ export function LoginScreen({ navigation }: Props) {
             flexGrow: 1,
             justifyContent: 'center',
             padding: spacing.lg,
-            gap: spacing.lg,
+            gap: spacing.xl,
           }}>
-          <Text style={[typography.title, { color: colors.text }]}>FitSense</Text>
-          <Text style={[typography.body, { color: colors.textMuted }]}>
-            Đăng nhập để bắt đầu theo dõi hoạt động.
-          </Text>
+          <AuthBrandHeader
+            showLogo
+            title="FitSense"
+            tagline="Move Better. Live Healthier."
+            subtitle="Đăng nhập để theo dõi bước chân, GPS và mục tiêu."
+          />
 
           <Card style={{ gap: spacing.md }}>
             <Controller
               control={control}
               name="email"
-              render={({ field: { onChange, value } }) => (
+              render={({ field: { onChange, onBlur, value } }) => (
                 <Input
                   label="Email"
                   placeholder="you@example.com"
                   autoCapitalize="none"
                   autoComplete="email"
+                  textContentType="emailAddress"
                   keyboardType="email-address"
+                  returnKeyType="next"
+                  onSubmitEditing={() => passwordRef.current?.focus()}
                   value={value}
                   onChangeText={onChange}
+                  onBlur={onBlur}
                   error={errors.email?.message}
                 />
               )}
             />
-            <Controller
-              control={control}
-              name="password"
-              render={({ field: { onChange, value } }) => (
-                <Input
-                  label="Mật khẩu"
-                  placeholder="••••••"
-                  secureTextEntry
-                  autoComplete="password"
-                  value={value}
-                  onChangeText={onChange}
-                  error={errors.password?.message}
-                />
-              )}
+
+            <View style={{ gap: spacing.xs }}>
+              <Controller
+                control={control}
+                name="password"
+                render={({ field: { onChange, onBlur, value } }) => (
+                  <PasswordInput
+                    ref={passwordRef}
+                    label="Mật khẩu"
+                    placeholder="••••••"
+                    autoComplete="password"
+                    textContentType="password"
+                    returnKeyType="done"
+                    onSubmitEditing={() => {
+                      handleLogin();
+                    }}
+                    value={value}
+                    onChangeText={onChange}
+                    onBlur={onBlur}
+                    error={errors.password?.message}
+                  />
+                )}
+              />
+
+              <View style={styles.forgotRow}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Quên mật khẩu"
+                  disabled={loading || googleLoading}
+                  onPress={() => navigation.navigate('ResetPassword')}
+                  style={({ pressed }) => [
+                    styles.linkBtn,
+                    { opacity: pressed ? 0.65 : 1 },
+                  ]}>
+                  <Text style={[typography.label, { color: colors.primary }]}>
+                    Quên mật khẩu?
+                  </Text>
+                </Pressable>
+              </View>
+            </View>
+
+            <Button
+              title="Đăng nhập"
+              onPress={handleLogin}
+              loading={loading}
+              disabled={googleLoading}
             />
-            <Button title="Đăng nhập" onPress={handleLogin} loading={loading} />
+
+            <View style={[styles.dividerRow, { gap: spacing.sm }]}>
+              <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
+              <Text style={[typography.caption, { color: colors.textMuted }]}>
+                hoặc
+              </Text>
+              <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
+            </View>
+
             <Button
               title="Đăng nhập với Google"
               variant="secondary"
@@ -127,21 +186,55 @@ export function LoginScreen({ navigation }: Props) {
               loading={googleLoading}
               disabled={loading}
             />
-            <Button
-              title="Quên mật khẩu"
-              variant="ghost"
-              disabled={loading || googleLoading}
-              onPress={() => navigation.navigate('ResetPassword')}
-            />
-            <Button
-              title="Tạo tài khoản"
-              variant="secondary"
+          </Card>
+
+          <View style={[styles.footerRow, { gap: spacing.xs }]}>
+            <Text style={[typography.body, { color: colors.textMuted }]}>
+              Chưa có tài khoản?
+            </Text>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Tạo tài khoản mới"
               disabled={loading || googleLoading}
               onPress={() => navigation.navigate('Register')}
-            />
-          </Card>
+              style={({ pressed }) => [
+                styles.linkBtn,
+                { opacity: pressed ? 0.65 : 1 },
+              ]}>
+              <Text style={[typography.label, { color: colors.primary }]}>
+                Đăng ký ngay
+              </Text>
+            </Pressable>
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  flex: {
+    flex: 1,
+  },
+  forgotRow: {
+    alignItems: 'flex-end',
+  },
+  linkBtn: {
+    minHeight: 44,
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+  dividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  dividerLine: {
+    flex: 1,
+    height: StyleSheet.hairlineWidth,
+  },
+  footerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+});
