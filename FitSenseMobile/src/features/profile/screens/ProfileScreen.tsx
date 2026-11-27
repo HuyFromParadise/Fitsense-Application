@@ -1,3 +1,4 @@
+import { Moon, Smartphone, Sun } from 'lucide-react-native';
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -13,18 +14,15 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../../app/providers/ThemeProvider';
 import { Button, Input, Card, Loading } from '../../../components/common';
-import ThemeSwitch from '@/components/library/ThemeSwitch';
 import { useAuthStore } from '../../../stores/useAuthStore';
-import { useThemeStore } from '../../../stores/useThemeStore';
 import { tabularNums } from '../../../theme';
 import { useProfile } from '../useProfile';
 import { NotificationSettingsScreen } from '../../notifications/screens/NotificationSettingsScreen';
 
 export function ProfileScreen() {
-  const { colors, spacing, radius, typography, isDark } = useTheme();
+  const { colors, spacing, radius, typography, themeMode, setThemeMode } = useTheme();
   const insets = useSafeAreaInsets();
   const signOut = useAuthStore(state => state.signOut);
-  const setMode = useThemeStore(state => state.setMode);
   const { profile, loading: profileLoading, refresh, updateProfile, deleteAccount } = useProfile();
 
   const [showNotifications, setShowNotifications] = useState(false);
@@ -344,20 +342,53 @@ export function ProfileScreen() {
         />
       </Card>
 
-      {/* Theme Settings (Full-Screen Rain Animated Switch) */}
-      <Card style={{ marginBottom: spacing.md, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-        <View style={{ flex: 1, marginRight: spacing.md }}>
-          <Text style={[typography.label, { color: colors.text }]}>
-            Giao diện {isDark ? 'Tối (Đen Cam)' : 'Sáng'}
-          </Text>
-          <Text style={[typography.caption, { color: colors.textMuted, marginTop: 2 }]}>
-            {isDark ? 'Chạm để đổi sang nền sáng (Hiệu ứng mưa rơi toàn màn hình)' : 'Chạm để đổi sang nền tối (Hiệu ứng mưa rơi toàn màn hình)'}
-          </Text>
+      {/* Theme Settings (Instant ThemeProvider Switch) */}
+      <Card style={{ marginBottom: spacing.md, gap: spacing.sm }}>
+        <Text style={[typography.label, { color: colors.text }]}>
+          Giao diện
+        </Text>
+        <View style={[styles.pillRow, { gap: spacing.sm, marginBottom: 0 }]}>
+          {(
+            [
+              { mode: 'dark', label: 'Tối', Icon: Moon },
+              { mode: 'light', label: 'Sáng', Icon: Sun },
+              { mode: 'system', label: 'Hệ thống', Icon: Smartphone },
+            ] as const
+          ).map(({ mode, label, Icon }) => {
+            const isSelected = themeMode === mode;
+            const iconColor = isSelected ? colors.primary : colors.textMuted;
+            return (
+              <Pressable
+                key={mode}
+                accessibilityRole="button"
+                accessibilityState={{ selected: isSelected }}
+                onPress={() => setThemeMode?.(mode)}
+                style={({ pressed }) => [
+                  styles.pill,
+                  styles.themePill,
+                  {
+                    gap: spacing.xs,
+                    borderRadius: radius.md,
+                    borderColor: isSelected ? colors.primary : colors.border,
+                    backgroundColor: isSelected ? colors.primaryMuted : colors.surface,
+                    opacity: pressed ? 0.85 : 1,
+                  },
+                ]}>
+                <Icon size={16} color={iconColor} strokeWidth={2} />
+                <Text
+                  style={[
+                    typography.caption,
+                    {
+                      color: isSelected ? colors.primary : colors.text,
+                      fontWeight: isSelected ? '700' : '400',
+                    },
+                  ]}>
+                  {label}
+                </Text>
+              </Pressable>
+            );
+          })}
         </View>
-        <ThemeSwitch
-          theme={isDark ? 'dark' : 'light'}
-          onThemeChange={(newTheme) => setMode(newTheme)}
-        />
       </Card>
 
       {/* App Settings */}
@@ -444,5 +475,8 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderWidth: 1,
     alignItems: 'center',
+  },
+  themePill: {
+    flexDirection: 'row',
   },
 });

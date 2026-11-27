@@ -2,49 +2,21 @@ import React, { useEffect, useRef } from 'react';
 import {
   Animated,
   Easing,
+  Image,
   StyleSheet,
   Text,
   useWindowDimensions,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Svg, { Circle, Path } from 'react-native-svg';
 
 import { useTheme } from '../../../app/providers/ThemeProvider';
 import { RunnerAnimation } from '../components/RunnerAnimation';
 
+const FITSENSE_LOGO = require('../../../../assets/images/fitsense_logo.jpg');
+
 export interface AnimatedSplashScreenProps {
   message?: string;
-}
-
-function FitSenseLogoIcon({
-  primaryColor,
-  accentColor,
-}: {
-  primaryColor: string;
-  accentColor: string;
-}) {
-  return (
-    <Svg width={36} height={36} viewBox="0 0 36 36" fill="none">
-      <Circle
-        cx="18"
-        cy="18"
-        r="15"
-        stroke={primaryColor}
-        strokeWidth="2.4"
-        strokeOpacity="0.35"
-      />
-      <Path
-        d="M20 5L9 20H18L16 31L27 16H18L20 5Z"
-        fill={primaryColor}
-        stroke={primaryColor}
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <Circle cx="27" cy="9" r="3" fill={accentColor} />
-    </Svg>
-  );
 }
 
 /**
@@ -122,9 +94,11 @@ export function AnimatedSplashScreen({
               transform: [{ scale: pulseScale }],
             },
           ]}>
-          <FitSenseLogoIcon
-            primaryColor={colors.primary}
-            accentColor={colors.success}
+          <Image
+            source={FITSENSE_LOGO}
+            style={styles.logoImage}
+            resizeMode="cover"
+            accessibilityLabel="Logo FitSense"
           />
         </Animated.View>
 
@@ -195,11 +169,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   logoBadge: {
-    width: 68,
-    height: 68,
+    width: 72,
+    height: 72,
     borderWidth: 2,
+    overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  logoImage: {
+    width: '100%',
+    height: '100%',
   },
   brandName: {
     letterSpacing: 0.5,

@@ -5,15 +5,28 @@ import {
   updateProfile,
 } from '@react-native-firebase/auth';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import React, { useState } from 'react';
+import { UserPlus } from 'lucide-react-native';
+import React, { useRef, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { Alert, KeyboardAvoidingView, Platform, ScrollView, Text } from 'react-native';
+import {
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { z } from 'zod';
 
-import { useTheme } from '../../../app/providers/ThemeProvider';
 import type { AuthStackParamList } from '../../../app/navigation/types';
+import { useTheme } from '../../../app/providers/ThemeProvider';
 import { Button, Card, Input } from '../../../components/common';
+import { AuthBrandHeader } from '../components/AuthBrandHeader';
+import { PasswordInput } from '../components/PasswordInput';
 import { authErrorMessage } from './authErrors';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'Register'>;
@@ -35,6 +48,10 @@ type RegisterValues = z.infer<typeof registerSchema>;
 export function RegisterScreen({ navigation }: Props) {
   const { colors, spacing, typography } = useTheme();
   const [loading, setLoading] = useState(false);
+
+  const emailRef = useRef<React.ComponentRef<typeof TextInput>>(null);
+  const passwordRef = useRef<React.ComponentRef<typeof TextInput>>(null);
+  const confirmRef = useRef<React.ComponentRef<typeof TextInput>>(null);
 
   const {
     control,
@@ -69,9 +86,9 @@ export function RegisterScreen({ navigation }: Props) {
   });
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+    <SafeAreaView style={[styles.flex, { backgroundColor: colors.background }]}>
       <KeyboardAvoidingView
-        style={{ flex: 1 }}
+        style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView
           keyboardShouldPersistTaps="handled"
@@ -79,20 +96,29 @@ export function RegisterScreen({ navigation }: Props) {
             flexGrow: 1,
             justifyContent: 'center',
             padding: spacing.lg,
-            gap: spacing.lg,
+            gap: spacing.xl,
           }}>
-          <Text style={[typography.title, { color: colors.text }]}>Tạo tài khoản</Text>
+          <AuthBrandHeader
+            icon={<UserPlus size={28} color={colors.primary} strokeWidth={2} />}
+            title="Tạo tài khoản"
+            subtitle="Bắt đầu hành trình tập luyện và theo dõi sức khỏe cùng FitSense."
+          />
 
           <Card style={{ gap: spacing.md }}>
             <Controller
               control={control}
               name="displayName"
-              render={({ field: { onChange, value } }) => (
+              render={({ field: { onChange, onBlur, value } }) => (
                 <Input
                   label="Họ và tên"
                   placeholder="Nguyễn Văn A"
+                  autoComplete="name"
+                  textContentType="name"
+                  returnKeyType="next"
+                  onSubmitEditing={() => emailRef.current?.focus()}
                   value={value}
                   onChangeText={onChange}
+                  onBlur={onBlur}
                   error={errors.displayName?.message}
                 />
               )}
@@ -100,15 +126,19 @@ export function RegisterScreen({ navigation }: Props) {
             <Controller
               control={control}
               name="email"
-              render={({ field: { onChange, value } }) => (
+              render={({ field: { onChange, onBlur, value } }) => (
                 <Input
                   label="Email"
                   placeholder="you@example.com"
                   autoCapitalize="none"
                   autoComplete="email"
+                  textContentType="emailAddress"
                   keyboardType="email-address"
+                  returnKeyType="next"
+                  onSubmitEditing={() => passwordRef.current?.focus()}
                   value={value}
                   onChangeText={onChange}
+                  onBlur={onBlur}
                   error={errors.email?.message}
                 />
               )}
@@ -116,14 +146,18 @@ export function RegisterScreen({ navigation }: Props) {
             <Controller
               control={control}
               name="password"
-              render={({ field: { onChange, value } }) => (
-                <Input
+              render={({ field: { onChange, onBlur, value } }) => (
+                <PasswordInput
+                  ref={passwordRef}
                   label="Mật khẩu"
                   placeholder="Tối thiểu 6 ký tự"
-                  secureTextEntry
                   autoComplete="new-password"
+                  textContentType="newPassword"
+                  returnKeyType="next"
+                  onSubmitEditing={() => confirmRef.current?.focus()}
                   value={value}
                   onChangeText={onChange}
+                  onBlur={onBlur}
                   error={errors.password?.message}
                 />
               )}
@@ -131,27 +165,63 @@ export function RegisterScreen({ navigation }: Props) {
             <Controller
               control={control}
               name="confirmPassword"
-              render={({ field: { onChange, value } }) => (
-                <Input
+              render={({ field: { onChange, onBlur, value } }) => (
+                <PasswordInput
+                  ref={confirmRef}
                   label="Xác nhận mật khẩu"
                   placeholder="Nhập lại mật khẩu"
-                  secureTextEntry
                   autoComplete="new-password"
+                  textContentType="newPassword"
+                  returnKeyType="done"
+                  onSubmitEditing={() => {
+                    handleRegister();
+                  }}
                   value={value}
                   onChangeText={onChange}
+                  onBlur={onBlur}
                   error={errors.confirmPassword?.message}
                 />
               )}
             />
             <Button title="Đăng ký" onPress={handleRegister} loading={loading} />
-            <Button
-              title="Đã có tài khoản? Đăng nhập"
-              variant="ghost"
-              onPress={() => navigation.goBack()}
-            />
           </Card>
+
+          <View style={[styles.footerRow, { gap: spacing.xs }]}>
+            <Text style={[typography.body, { color: colors.textMuted }]}>
+              Đã có tài khoản?
+            </Text>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Quay lại đăng nhập"
+              disabled={loading}
+              onPress={() => navigation.goBack()}
+              style={({ pressed }) => [
+                styles.linkBtn,
+                { opacity: pressed ? 0.65 : 1 },
+              ]}>
+              <Text style={[typography.label, { color: colors.primary }]}>
+                Đăng nhập
+              </Text>
+            </Pressable>
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  flex: {
+    flex: 1,
+  },
+  footerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  linkBtn: {
+    minHeight: 44,
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+});
