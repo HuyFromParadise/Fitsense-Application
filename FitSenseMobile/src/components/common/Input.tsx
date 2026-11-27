@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo, useState } from 'react';
 import {
   StyleSheet,
   Text,
@@ -14,8 +14,22 @@ interface InputProps extends TextInputProps {
   error?: string | null;
 }
 
-export function Input({ label, error, style, ...rest }: InputProps) {
+export const Input = memo(function Input({
+  label,
+  error,
+  style,
+  onFocus,
+  onBlur,
+  ...rest
+}: InputProps) {
   const { colors, spacing, radius, typography } = useTheme();
+  const [isFocused, setIsFocused] = useState(false);
+
+  const borderColor = error
+    ? colors.danger
+    : isFocused
+      ? colors.primary
+      : colors.border;
 
   return (
     <View style={{ gap: spacing.xs }}>
@@ -24,11 +38,20 @@ export function Input({ label, error, style, ...rest }: InputProps) {
       ) : null}
       <TextInput
         placeholderTextColor={colors.textMuted}
+        onFocus={e => {
+          setIsFocused(true);
+          onFocus?.(e);
+        }}
+        onBlur={e => {
+          setIsFocused(false);
+          onBlur?.(e);
+        }}
         style={[
           styles.input,
+          typography.body,
           {
             backgroundColor: colors.surface,
-            borderColor: error ? colors.danger : colors.border,
+            borderColor,
             borderRadius: radius.md,
             color: colors.text,
             paddingHorizontal: spacing.md,
@@ -45,11 +68,11 @@ export function Input({ label, error, style, ...rest }: InputProps) {
       ) : null}
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   input: {
+    minHeight: 48,
     borderWidth: 1,
-    fontSize: 15,
   },
 });

@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { memo, useRef } from 'react';
 import {
   ActivityIndicator,
   Animated,
@@ -22,7 +22,7 @@ interface ButtonProps {
   style?: StyleProp<ViewStyle>;
 }
 
-export function Button({
+export const Button = memo(function Button({
   title,
   onPress,
   variant = 'primary',
@@ -78,11 +78,12 @@ export function Button({
         style={({ pressed }) => [
           styles.base,
           {
-            backgroundColor: background,
+            backgroundColor:
+              variant === 'primary' && pressed ? colors.primaryPressed : background,
             borderRadius: radius.md,
             paddingVertical: spacing.md,
             paddingHorizontal: spacing.lg,
-            opacity: isDisabled ? 0.5 : pressed ? 0.92 : 1,
+            opacity: isDisabled ? 0.5 : pressed && variant !== 'primary' ? 0.92 : 1,
             borderColor: variant === 'ghost' ? colors.border : 'transparent',
             borderWidth: variant === 'ghost' ? 1 : 0,
           },
@@ -95,10 +96,11 @@ export function Button({
       </Pressable>
     </Animated.View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   base: {
+    minHeight: 48,
     alignItems: 'center',
     justifyContent: 'center',
   },

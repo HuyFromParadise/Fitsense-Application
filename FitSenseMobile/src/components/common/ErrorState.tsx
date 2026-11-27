@@ -1,10 +1,10 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { useTheme } from '../../app/providers/ThemeProvider';
 import { Button } from './Button';
 
-export function ErrorState({
+export const ErrorState = memo(function ErrorState({
   message,
   onRetry,
 }: {
@@ -24,7 +24,7 @@ export function ErrorState({
       {onRetry ? <Button title="Thử lại" variant="secondary" onPress={onRetry} /> : null}
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   center: {

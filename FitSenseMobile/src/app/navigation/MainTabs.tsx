@@ -1,6 +1,7 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import React from 'react';
-import { Text } from 'react-native';
+import { Activity, BarChart3, Target, User, Zap } from 'lucide-react-native';
+import React, { memo } from 'react';
+import { StyleSheet, Text, View } from 'react-native';
 
 import { useTheme } from '../providers/ThemeProvider';
 import { AnalyticsScreen } from '../../features/analytics/screens/AnalyticsScreen';
@@ -12,8 +13,44 @@ import type { MainTabParamList } from './types';
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
 
+const TAB_ICONS: Record<keyof MainTabParamList, typeof Zap> = {
+  Dashboard: Zap,
+  Exercise: Activity,
+  Analytics: BarChart3,
+  Goals: Target,
+  Profile: User,
+};
+
+const TabBarIcon = memo(function TabBarIcon({
+  routeName,
+  focused,
+  color,
+}: {
+  routeName: keyof MainTabParamList;
+  focused: boolean;
+  color: string;
+}) {
+  const { colors, radius, spacing } = useTheme();
+  const IconComponent = TAB_ICONS[routeName];
+
+  return (
+    <View
+      style={[
+        styles.iconPill,
+        {
+          backgroundColor: focused ? colors.primaryMuted : 'transparent',
+          borderRadius: radius.pill,
+          paddingHorizontal: spacing.md,
+          paddingVertical: spacing.xs,
+        },
+      ]}>
+      <IconComponent size={24} color={color} strokeWidth={2} />
+    </View>
+  );
+});
+
 export function MainTabs() {
-  const { colors, typography } = useTheme();
+  const { colors, spacing, typography } = useTheme();
 
   return (
     <Tab.Navigator
@@ -28,33 +65,38 @@ export function MainTabs() {
           ...typography.title,
           color: colors.text,
         },
-        // tabBarStyle: {
-        //   backgroundColor: colors.surface,
-        //   borderTopColor: colors.border,
-        //   borderTopWidth: 1,
-        //   height: 60,
-        //   paddingBottom: 8,
-        //   paddingTop: 6,
-        // },
+        tabBarStyle: {
+          backgroundColor: colors.surface,
+          borderTopColor: colors.border,
+          borderTopWidth: StyleSheet.hairlineWidth,
+          minHeight: 64,
+          paddingTop: spacing.xs,
+          paddingBottom: spacing.sm,
+        },
+        tabBarItemStyle: {
+          minHeight: 48,
+          paddingVertical: spacing.xs,
+        },
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.textMuted,
-        tabBarLabelStyle: {
-          fontSize: 11,
-          fontWeight: '600',
-        },
-        tabBarIcon: ({ focused }) => {
-          let icon = '⚡';
-          if (route.name === 'Dashboard') icon = '⚡';
-          else if (route.name === 'Exercise') icon = '🏃';
-          else if (route.name === 'Analytics') icon = '📊';
-          else if (route.name === 'Goals') icon = '🎯';
-          else if (route.name === 'Profile') icon = '👤';
-          return (
-            <Text style={{ fontSize: 18, opacity: focused ? 1 : 0.6 }}>
-              {icon}
-            </Text>
-          );
-        },
+        tabBarLabel: ({ focused, color, children }) => (
+          <Text
+            adjustsFontSizeToFit
+            minimumFontScale={0.75}
+            numberOfLines={2}
+            style={[
+              styles.tabLabel,
+              {
+                color,
+                fontWeight: focused ? '700' : '600',
+              },
+            ]}>
+            {children}
+          </Text>
+        ),
+        tabBarIcon: ({ focused, color }) => (
+          <TabBarIcon routeName={route.name} focused={focused} color={color} />
+        ),
       })}
     >
       <Tab.Screen name="Dashboard" component={DashboardScreen} options={{ title: 'Hôm nay' }} />
@@ -65,3 +107,15 @@ export function MainTabs() {
     </Tab.Navigator>
   );
 }
+
+const styles = StyleSheet.create({
+  iconPill: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tabLabel: {
+    fontSize: 11,
+    lineHeight: 14,
+    textAlign: 'center',
+  },
+});

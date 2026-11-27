@@ -2,7 +2,7 @@ import React from 'react';
 import { Animated, StyleSheet, View } from 'react-native';
 
 import { useTheme } from '../../../app/providers/ThemeProvider';
-import { ROAD_SEGMENT_WIDTH } from '../animations/useRunningTurtleAnimation';
+import { ROAD_SEGMENT_WIDTH } from '../animations/useRunnerAnimation';
 
 export interface AnimatedRoadProps {
   roadTranslateX: Animated.AnimatedInterpolation<number>;

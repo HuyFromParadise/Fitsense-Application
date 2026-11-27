@@ -178,8 +178,6 @@ export interface LocalDbModule {
   markExerciseSyncState(id: string, state: SyncQueueState): Promise<void>;
   clearAllActivities(): Promise<void>;
   clearAllExercises(): Promise<void>;
-  getOnboardingCompleted?(): Promise<boolean>;
-  setOnboardingCompleted?(completed: boolean): Promise<void>;
 }
 
 /** --------------------------------------------------------------- Notification */

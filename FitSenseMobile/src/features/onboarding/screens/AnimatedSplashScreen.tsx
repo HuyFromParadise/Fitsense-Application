@@ -11,7 +11,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, Path } from 'react-native-svg';
 
 import { useTheme } from '../../../app/providers/ThemeProvider';
-import { RunningTurtle } from '../components/RunningTurtle';
+import { RunnerAnimation } from '../components/RunnerAnimation';
 
 export interface AnimatedSplashScreenProps {
   message?: string;
@@ -148,9 +148,9 @@ export function AnimatedSplashScreen({
         </Text>
       </View>
 
-      {/* Running Cute Turtle Mascot on Road with Smoke */}
+      {/* Animated Runner SVG on Road with Parallax Background & Dust Trail */}
       <View style={styles.mascotSection}>
-        <RunningTurtle state="running" height={248} />
+        <RunnerAnimation height={248} />
       </View>
 
       {/* Subtle Loading Indicator */}

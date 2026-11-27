@@ -1,8 +1,8 @@
 import { darkColors, lightColors, type ThemeColors } from './colors';
 import { radius, spacing } from './spacing';
-import { typography } from './typography';
+import { tabularNums, typography } from './typography';
 
-export { darkColors, lightColors, radius, spacing, typography };
+export { darkColors, lightColors, radius, spacing, tabularNums, typography };
 export type { ThemeColors };
 
 export interface Theme {
