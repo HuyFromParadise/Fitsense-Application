@@ -16,13 +16,17 @@ jest.mock('../../../services/sync', () => ({
 
 const manager = syncManager as jest.Mocked<typeof syncManager>;
 
-beforeEach(() => {
+beforeEach(async () => {
   jest.clearAllMocks();
-  useAuthStore.setState({ isAuthenticated: false, token: null, user: null });
+  await act(async () => {
+    useAuthStore.setState({ isAuthenticated: false, token: null, user: null });
+  });
 });
 
 test('starts syncing once the user is authenticated', async () => {
-  useAuthStore.setState({ isAuthenticated: true });
+  await act(async () => {
+    useAuthStore.setState({ isAuthenticated: true });
+  });
 
   let tree!: ReactTestRenderer.ReactTestRenderer;
   await act(async () => {
@@ -31,11 +35,15 @@ test('starts syncing once the user is authenticated', async () => {
 
   expect(manager.start).toHaveBeenCalled();
   expect(manager.clearLocalData).not.toHaveBeenCalled();
-  tree.unmount();
+  await act(async () => {
+    tree.unmount();
+  });
 });
 
 test('stops syncing and clears local data on logout', async () => {
-  useAuthStore.setState({ isAuthenticated: true });
+  await act(async () => {
+    useAuthStore.setState({ isAuthenticated: true });
+  });
 
   let tree!: ReactTestRenderer.ReactTestRenderer;
   await act(async () => {
@@ -48,7 +56,9 @@ test('stops syncing and clears local data on logout', async () => {
 
   expect(manager.stop).toHaveBeenCalled();
   expect(manager.clearLocalData).toHaveBeenCalledTimes(1);
-  tree.unmount();
+  await act(async () => {
+    tree.unmount();
+  });
 });
 
 test('does not clear local data while logged out on cold start', async () => {
@@ -59,5 +69,7 @@ test('does not clear local data while logged out on cold start', async () => {
 
   expect(manager.start).not.toHaveBeenCalled();
   expect(manager.clearLocalData).not.toHaveBeenCalled();
-  tree.unmount();
+  await act(async () => {
+    tree.unmount();
+  });
 });

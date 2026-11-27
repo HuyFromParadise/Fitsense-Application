@@ -1,6 +1,7 @@
 export interface ThemeColors {
   primary: string;
   primaryPressed: string;
+  primaryMuted: string;
   onPrimary: string;
   background: string;
   surface: string;
@@ -14,34 +15,37 @@ export interface ThemeColors {
   onDanger: string;
 }
 
+// Brand Identity: Athletic Black & Electric Flame Orange (Đen - Cam)
 export const lightColors: ThemeColors = {
-  primary: '#2563EB',
-  primaryPressed: '#1D4ED8',
+  primary: '#FF6B00',
+  primaryPressed: '#E05A00',
+  primaryMuted: 'rgba(255,107,0,0.12)',
   onPrimary: '#FFFFFF',
-  background: '#F8FAFC',
+  background: '#F8F9FA',
   surface: '#FFFFFF',
-  surfaceAlt: '#F1F5F9',
-  border: '#E2E8F0',
-  text: '#0F172A',
-  textMuted: '#64748B',
-  success: '#16A34A',
-  warning: '#D97706',
-  danger: '#DC2626',
+  surfaceAlt: '#F1F3F5',
+  border: '#E5E7EB',
+  text: '#18181B',
+  textMuted: '#71717A',
+  success: '#10B981',
+  warning: '#F59E0B',
+  danger: '#EF4444',
   onDanger: '#FFFFFF',
 };
 
 export const darkColors: ThemeColors = {
-  primary: '#60A5FA',
-  primaryPressed: '#3B82F6',
-  onPrimary: '#0B1220',
-  background: '#0B1220',
-  surface: '#111C2E',
-  surfaceAlt: '#17263C',
-  border: '#24374F',
-  text: '#E2E8F0',
+  primary: '#FF6B00',
+  primaryPressed: '#E05A00',
+  primaryMuted: 'rgba(255,107,0,0.16)',
+  onPrimary: '#FFFFFF',
+  background: '#0E0E12',
+  surface: '#18181D',
+  surfaceAlt: '#24242C',
+  border: '#2E2E38',
+  text: '#F8FAFC',
   textMuted: '#94A3B8',
-  success: '#4ADE80',
-  warning: '#FBBF24',
-  danger: '#F87171',
-  onDanger: '#0B1220',
+  success: '#10B981',
+  warning: '#F59E0B',
+  danger: '#EF4444',
+  onDanger: '#FFFFFF',
 };

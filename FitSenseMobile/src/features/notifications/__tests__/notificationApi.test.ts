@@ -31,7 +31,9 @@ describe('notificationApi', () => {
       workoutRemindersEnabled: false,
       goalAchievementsEnabled: true,
     };
-    (apiClient.get as jest.Mock).mockResolvedValueOnce({ data: mockSettings });
+    (apiClient.get as jest.Mock).mockResolvedValueOnce({
+      data: { success: true, data: mockSettings },
+    });
 
     const result = await notificationApi.getSettings();
     expect(apiClient.get).toHaveBeenCalledWith('/api/notifications/settings');
@@ -44,7 +46,9 @@ describe('notificationApi', () => {
       workoutRemindersEnabled: true,
       goalAchievementsEnabled: true,
     };
-    (apiClient.put as jest.Mock).mockResolvedValueOnce({ data: updated });
+    (apiClient.put as jest.Mock).mockResolvedValueOnce({
+      data: { success: true, data: updated },
+    });
 
     const result = await notificationApi.updateSettings(updated);
     expect(apiClient.put).toHaveBeenCalledWith('/api/notifications/settings', updated);
@@ -53,12 +57,12 @@ describe('notificationApi', () => {
 
   it('sendTestNotification invokes backend test endpoint', async () => {
     (apiClient.post as jest.Mock).mockResolvedValueOnce({
-      data: { message: 'Test sent', count: 1 },
+      data: { success: true, data: { dispatchedCount: 1 } },
     });
 
     const result = await notificationApi.sendTestNotification();
     expect(apiClient.post).toHaveBeenCalledWith('/api/notifications/test-send');
-    expect(result.count).toBe(1);
+    expect(result.dispatchedCount).toBe(1);
   });
 
   it('registerDevice sends device metadata and fcmToken', async () => {

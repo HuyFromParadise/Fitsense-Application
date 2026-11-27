@@ -102,6 +102,33 @@ class LocalDbModule(private val context: ReactApplicationContext) :
     }
 
     @ReactMethod
+    fun clearAllExercises(promise: Promise) {
+        executor.execute {
+            runBlocking {
+                runCatching { db.localExerciseDao().clearAll() }
+                    .onSuccess { promise.resolve(null) }
+                    .onFailure { promise.reject("DATABASE_ERROR", it.message, it) }
+            }
+        }
+    }
+
+    @ReactMethod
+    fun markExerciseSyncState(id: String, state: String, promise: Promise) {
+        executor.execute {
+            runBlocking {
+                runCatching {
+                    db.localExerciseDao().markSyncState(id, state, TimeUtils.nowMs())
+                    if (state == "SYNCED") {
+                        db.localGpsPointDao().markSyncedBySession(id)
+                    }
+                }
+                    .onSuccess { promise.resolve(null) }
+                    .onFailure { promise.reject("DATABASE_ERROR", it.message, it) }
+            }
+        }
+    }
+
+    @ReactMethod
     fun getLocalExercises(limit: Double, offset: Double, promise: Promise) {
         executor.execute {
             runBlocking {

@@ -243,21 +243,30 @@ export function AnalyticsScreen() {
 
             <Card style={styles.kpiCard}>
               <Text style={[typography.caption, { color: colors.textMuted, marginBottom: 4 }]}>Hoàn thành mục tiêu</Text>
-              <Text
-                style={[
-                  typography.heading,
-                  {
-                    color:
-                      data.goalCompletionRate >= 70
-                        ? colors.success
-                        : data.goalCompletionRate >= 40
-                        ? colors.warning
-                        : colors.textMuted,
-                  },
-                ]}
-              >
-                {data.goalCompletionRate}%
-              </Text>
+              {(() => {
+                const completionPct = Math.round(
+                  data.goalCompletionRate <= 1
+                    ? data.goalCompletionRate * 100
+                    : data.goalCompletionRate
+                );
+                return (
+                  <Text
+                    style={[
+                      typography.heading,
+                      {
+                        color:
+                          completionPct >= 70
+                            ? colors.success
+                            : completionPct >= 40
+                            ? colors.warning
+                            : colors.textMuted,
+                      },
+                    ]}
+                  >
+                    {completionPct}%
+                  </Text>
+                );
+              })()}
               <Text style={[typography.caption, { color: colors.textMuted, marginTop: 2 }]}>
                 Tỷ lệ đạt goal
               </Text>
@@ -308,6 +317,8 @@ export function AnalyticsScreen() {
               <View style={styles.chartWrapper}>
                 {mode === 'weekly' ? (
                   <BarChart
+                    // gifted-charts only draws bars on mount, so remount per period/metric
+                    key={`bar-${data.periodStart}-${chartMetric}`}
                     data={chartData}
                     width={SCREEN_WIDTH - 96}
                     height={190}
@@ -325,6 +336,8 @@ export function AnalyticsScreen() {
                   />
                 ) : (
                   <LineChart
+                    // same mount-only rendering issue for line/area chart
+                    key={`line-${data.periodStart}-${chartMetric}`}
                     data={chartData}
                     width={SCREEN_WIDTH - 96}
                     height={190}
@@ -343,6 +356,9 @@ export function AnalyticsScreen() {
                     yAxisTextStyle={{ color: colors.textMuted, fontSize: 10 }}
                     xAxisLabelTextStyle={{ color: colors.textMuted, fontSize: 10 }}
                     noOfSections={4}
+                    isAnimated
+                    animationDuration={800}
+                    animateOnDataChange
                   />
                 )}
               </View>

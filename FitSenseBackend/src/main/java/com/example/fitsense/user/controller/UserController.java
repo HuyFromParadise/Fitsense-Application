@@ -13,6 +13,7 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -49,9 +50,9 @@ public class UserController {
 
     @DeleteMapping("/me")
     @Operation(summary = "Xóa tài khoản người dùng vĩnh viễn (cascade MySQL, Firestore, Firebase Auth)")
-    public ApiResponse<Void> deleteAccount(@AuthenticatedUser CurrentUser currentUser) {
+    public ResponseEntity<Void> deleteAccount(@AuthenticatedUser CurrentUser currentUser) {
         userService.deleteCurrentUser(currentUser);
-        return ApiResponse.ok(null);
+        return ResponseEntity.noContent().build();
     }
 
     @PutMapping("/devices")

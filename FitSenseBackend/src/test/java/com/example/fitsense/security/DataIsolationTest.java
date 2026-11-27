@@ -20,6 +20,7 @@ import com.example.fitsense.goal.entity.GoalEntity;
 import com.example.fitsense.goal.entity.GoalType;
 import com.example.fitsense.goal.repository.GoalRepository;
 import com.example.fitsense.goal.service.GoalService;
+import com.example.fitsense.notification.service.NotificationService;
 import com.example.fitsense.user.dto.UserResponse;
 import com.example.fitsense.user.service.UserService;
 import java.time.Clock;
@@ -55,6 +56,9 @@ class DataIsolationTest {
     @Mock
     private UserService userService;
 
+    @Mock
+    private NotificationService notificationService;
+
     private ExerciseService exerciseService;
     private GoalService goalService;
 
@@ -65,7 +69,8 @@ class DataIsolationTest {
     @BeforeEach
     void setUp() {
         Clock clock = Clock.fixed(Instant.parse("2026-11-16T08:00:00Z"), ZoneOffset.UTC);
-        exerciseService = new ExerciseService(sessionRepository, gpsPointRepository, userService);
+        exerciseService = new ExerciseService(
+                sessionRepository, gpsPointRepository, userService, goalRepository, notificationService);
         goalService = new GoalService(goalRepository, userService, clock);
 
         UserResponse userAResponse = UserResponse.builder()

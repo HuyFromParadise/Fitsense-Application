@@ -7,6 +7,7 @@ import type {
   SyncEntityType,
   SyncHandler,
   SyncItem,
+  SyncQueueRow,
   SyncResult,
 } from '../../types/native-interface';
 import { getDeviceId } from '../../utils/deviceId';
@@ -14,9 +15,11 @@ import { toApiError } from '../api/errors';
 import { LocalDb, Sync } from '../native';
 import { backoffDelayMs } from './backoff';
 import { dailyActivityClientId, toDailyActivityPayload } from './dailyActivity';
+import { type ExerciseSyncPayload, toExerciseCreatePayload } from './exerciseSync';
 import { reconcileItems, type SyncItemResult } from './syncApi';
 
-const ENTITY: SyncEntityType = 'DAILY_ACTIVITY';
+const ACTIVITY_ENTITY: SyncEntityType = 'DAILY_ACTIVITY';
+const EXERCISE_ENTITY: SyncEntityType = 'EXERCISE';
 // `/api/sync/reconcile` cho tối đa 500 item/request.
 const BATCH_SIZE = 500;
 const MAX_BATCHES = 10;
@@ -24,7 +27,7 @@ const BACKFILL_LIMIT = 100;
 const SYNCED_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
 
 /**
- * SyncManager (F8 - B): JS điều phối hàng đợi Room qua axios.
+ * SyncManager (F8 - B): JS điều phối hàng đợi Room qua axios cho cả DAILY_ACTIVITY và EXERCISE.
  * Native chỉ giữ primitive; mọi retry/backoff nằm ở đây.
  */
 class SyncManager {
@@ -53,13 +56,35 @@ class SyncManager {
   /** Enqueue ngày hiện tại; native upsert giữ payload mới nhất và reset PENDING. */
   async enqueueDailyActivity(row: StepSnapshotRow, triggerSync = true): Promise<void> {
     await Sync.enqueue(
-      ENTITY,
+      ACTIVITY_ENTITY,
       dailyActivityClientId(row),
       toDailyActivityPayload(row),
     );
     if (triggerSync) {
       this.syncNow().catch(() => {});
     }
+  }
+
+  /** Enqueue buổi tập (payload chuẩn ExerciseCreateRequest) vào SyncQueue để tự đồng bộ. */
+  async enqueueExercisePayload(
+    payload: ExerciseSyncPayload,
+    triggerSync = true,
+  ): Promise<void> {
+    await Sync.enqueue(EXERCISE_ENTITY, payload.id, payload);
+    if (triggerSync) {
+      this.syncNow().catch(() => {});
+    }
+  }
+
+  /** Đọc buổi tập + GPS points từ Room rồi đưa vào SyncQueue. */
+  async enqueueExercise(sessionId: string, triggerSync = true): Promise<void> {
+    const exercises = await LocalDb.getLocalExercises(BACKFILL_LIMIT, 0);
+    const target = exercises.find(item => item.id === sessionId);
+    if (!target || target.status !== 'FINISHED') {
+      return;
+    }
+    const points = await LocalDb.getLocalExercisePoints(target.id);
+    await this.enqueueExercisePayload(toExerciseCreatePayload(target, points), triggerSync);
   }
 
   /** Nút "Thử lại": đưa mọi item FAILED về PENDING ngay rồi sync. */
@@ -101,7 +126,7 @@ class SyncManager {
       await this.backfill();
 
       for (let batch = 0; batch < MAX_BATCHES; batch += 1) {
-        const due = await Sync.getDue(ENTITY, BATCH_SIZE);
+        const due = await this.collectDueBatch();
         if (due.length === 0) {
           break;
         }
@@ -142,20 +167,26 @@ class SyncManager {
           break;
         }
 
-        const byClientId = new Map(results.map(result => [result.clientId, result]));
+        const byKey = new Map(
+          results.map(result => [`${result.entityType}:${result.clientId}`, result]),
+        );
         const syncedIds: number[] = [];
 
         for (const row of due) {
-          const result = byClientId.get(row.clientId);
-          const date = row.clientId.split('|')[0];
+          const result = byKey.get(`${row.entityType}:${row.clientId}`);
 
           if (result && result.status !== 'REJECTED') {
-            if (result.status === 'CONFLICT') {
-              // Server mới hơn: ghi đè local bằng serverVersion trước khi coi là đã sync.
-              await this.applyServerVersion(result.serverVersion);
+            if (row.entityType === ACTIVITY_ENTITY) {
+              const date = row.clientId.split('|')[0];
+              if (result.status === 'CONFLICT') {
+                // Server mới hơn: ghi đè local bằng serverVersion trước khi coi là đã sync.
+                await this.applyServerVersion(result.serverVersion);
+              }
+              await LocalDb.markActivitySyncState(date, 'SYNCED');
+            } else if (row.entityType === EXERCISE_ENTITY) {
+              await LocalDb.markExerciseSyncState(row.clientId, 'SYNCED');
             }
             syncedIds.push(row.id);
-            await LocalDb.markActivitySyncState(date, 'SYNCED');
             continue;
           }
 
@@ -219,8 +250,17 @@ class SyncManager {
     this.stop();
     await this.syncNow().catch(() => {});
     await LocalDb.clearAllActivities();
+    await LocalDb.clearAllExercises();
     await Sync.clearAll();
     useSyncStatus.getState().reset();
+  }
+
+  private async collectDueBatch(): Promise<SyncQueueRow[]> {
+    const activityDue = await Sync.getDue(ACTIVITY_ENTITY, BATCH_SIZE);
+    if (activityDue.length > 0) {
+      return activityDue;
+    }
+    return Sync.getDue(EXERCISE_ENTITY, BATCH_SIZE);
   }
 
   /** `serverVersion` là daily summary server đã thắng (LWW) trong response CONFLICT. */
@@ -246,6 +286,14 @@ class SyncManager {
     for (const row of rows) {
       await this.enqueueDailyActivity(row, false);
     }
+
+    const exercises = await LocalDb.getLocalExercises(BACKFILL_LIMIT, 0).catch(() => []);
+    for (const ex of exercises) {
+      if (ex.status === 'FINISHED' && ex.syncState !== 'SYNCED') {
+        const points = await LocalDb.getLocalExercisePoints(ex.id).catch(() => []);
+        await this.enqueueExercisePayload(toExerciseCreatePayload(ex, points), false);
+      }
+    }
   }
 
   private scheduleRetry(atMs: number): void {
@@ -260,3 +308,4 @@ class SyncManager {
 }
 
 export const syncManager = new SyncManager();
+export { reconcileItems } from './syncApi';

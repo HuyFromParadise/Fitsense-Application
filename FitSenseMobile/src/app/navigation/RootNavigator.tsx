@@ -5,25 +5,38 @@ import {
   type Theme as NavigationTheme,
 } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 
-import { Loading } from '../../components/common';
+import { AnimatedSplashScreen } from '../../features/onboarding';
 import { SensorMonitorScreen } from '../../features/sensors/screens/SensorMonitorScreen';
 import { SyncGate } from '../../features/sync/SyncGate';
-import { setupExerciseFinishedNotification } from '../../features/notifications';
+import {
+  setupExerciseFinishedNotification,
+  setupForegroundFcmNotification,
+  setupPushTokenSync,
+} from '../../features/notifications';
+import { notificationApi } from '../../features/notifications/notificationApi';
 import { useAuthStore } from '../../stores/useAuthStore';
 import { useTheme } from '../providers/ThemeProvider';
-import { useEffect } from 'react';
 import { AuthStack } from './AuthStack';
 import { MainTabs } from './MainTabs';
 import type { RootStackParamList } from './types';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
+const SPLASH_DURATION_MS = 3000;
 
 export function RootNavigator() {
   const isAuthenticated = useAuthStore(state => state.isAuthenticated);
   const initializing = useAuthStore(state => state.initializing);
+  const [splashDone, setSplashDone] = useState(false);
   const theme = useTheme();
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSplashDone(true);
+    }, SPLASH_DURATION_MS);
+    return () => clearTimeout(timer);
+  }, []);
 
   const navigationTheme: NavigationTheme = useMemo(() => {
     const base = theme.isDark ? DarkTheme : DefaultTheme;
@@ -41,14 +54,25 @@ export function RootNavigator() {
     };
   }, [theme]);
 
-  // Setup exercise finished notification listener once on mount
+  // Setup exercise finished + foreground FCM notification listeners once on mount
   useEffect(() => {
-    const cleanup = setupExerciseFinishedNotification();
-    return cleanup;
+    const cleanExercise = setupExerciseFinishedNotification();
+    const cleanForegroundFcm = setupForegroundFcmNotification();
+    return () => {
+      cleanExercise();
+      cleanForegroundFcm();
+    };
   }, []);
 
-  if (initializing) {
-    return <Loading message="Đang kiểm tra đăng nhập..." />;
+  // Automatically register device FCM token and listen for token refresh while signed in
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    notificationApi.registerDevice().catch(() => {});
+    return setupPushTokenSync();
+  }, [isAuthenticated]);
+
+  if (initializing || !splashDone) {
+    return <AnimatedSplashScreen message="Đang kiểm tra đăng nhập..." />;
   }
 
   return (

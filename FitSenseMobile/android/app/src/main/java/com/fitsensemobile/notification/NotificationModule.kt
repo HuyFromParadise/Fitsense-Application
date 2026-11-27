@@ -7,6 +7,7 @@ import android.content.Context
 import android.content.SharedPreferences
 import android.os.Build
 import androidx.core.app.NotificationCompat
+import com.facebook.react.bridge.Arguments
 import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule
@@ -75,9 +76,10 @@ class NotificationModule(private val context: ReactApplicationContext) :
             return
         }
 
-        // Lưu khung giờ vào SharedPreferences để Worker đọc
+        // Lưu trạng thái bật & khung giờ vào SharedPreferences để Worker và UI đọc
         val prefs = context.getSharedPreferences(DailyReminderWorker.PREFS_NAME, Context.MODE_PRIVATE)
         prefs.edit()
+            .putBoolean(DailyReminderWorker.PREF_ENABLED, true)
             .putInt(DailyReminderWorker.PREF_START_HOUR, start)
             .putInt(DailyReminderWorker.PREF_END_HOUR, end)
             .apply()
@@ -96,7 +98,28 @@ class NotificationModule(private val context: ReactApplicationContext) :
 
     @ReactMethod
     fun cancelDailyReminders(promise: Promise) {
+        val prefs = context.getSharedPreferences(DailyReminderWorker.PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit().putBoolean(DailyReminderWorker.PREF_ENABLED, false).apply()
         DailyReminderWorker.cancel(context)
+        promise.resolve(null)
+    }
+
+    @ReactMethod
+    fun getDailyReminderConfig(promise: Promise) {
+        val prefs = context.getSharedPreferences(DailyReminderWorker.PREFS_NAME, Context.MODE_PRIVATE)
+        val map = Arguments.createMap().apply {
+            putBoolean("enabled", prefs.getBoolean(DailyReminderWorker.PREF_ENABLED, false))
+            putInt("startHour", prefs.getInt(DailyReminderWorker.PREF_START_HOUR, 8))
+            putInt("endHour", prefs.getInt(DailyReminderWorker.PREF_END_HOUR, 21))
+            putInt("stepGoal", prefs.getInt(DailyReminderWorker.PREF_STEP_GOAL, 8000))
+        }
+        promise.resolve(map)
+    }
+
+    @ReactMethod
+    fun setDailyStepGoal(goalSteps: Double, promise: Promise) {
+        val prefs = context.getSharedPreferences(DailyReminderWorker.PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit().putInt(DailyReminderWorker.PREF_STEP_GOAL, goalSteps.toInt().coerceAtLeast(1)).apply()
         promise.resolve(null)
     }
 

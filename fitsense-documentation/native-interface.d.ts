@@ -172,12 +172,23 @@ export interface LocalDbModule {
   /** F8: mọi ngày chưa `SYNCED`, cũ nhất trước — nguồn backfill của syncManager. */
   getUnsynced(limit: number): Promise<StepSnapshotRow[]>;
   markActivitySyncState(date: string, state: SyncQueueState): Promise<void>;
+  markExerciseSyncState(id: string, state: SyncQueueState): Promise<void>;
   clearAllActivities(): Promise<void>;
+  clearAllExercises(): Promise<void>;
+  getOnboardingCompleted?(): Promise<boolean>;
+  setOnboardingCompleted?(completed: boolean): Promise<void>;
 }
 
 /** --------------------------------------------------------------- Notification */
 
 export type NotificationChannelId = 'fitsense_default' | 'fitsense_activity' | 'fitsense_goal';
+
+export interface DailyReminderConfig {
+  enabled: boolean;
+  startHour: number;
+  endHour: number;
+  stepGoal: number;
+}
 
 export interface NotificationModule {
   /** Tạo channel + kiểm tra POST_NOTIFICATIONS. */
@@ -187,6 +198,8 @@ export interface NotificationModule {
   /** Đăng ký WorkManager nhắc bước chân trong khung giờ. */
   scheduleDailyReminders(startHour: number, endHour: number): Promise<void>;
   cancelDailyReminders(): Promise<void>;
+  getDailyReminderConfig?(): Promise<DailyReminderConfig>;
+  setDailyStepGoal?(goalSteps: number): Promise<void>;
 }
 
 /** ---------------------------------------------------------------------- Sync */

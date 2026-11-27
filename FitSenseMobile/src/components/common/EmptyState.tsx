@@ -1,9 +1,9 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { useTheme } from '../../app/providers/ThemeProvider';
 
-export function EmptyState({
+export const EmptyState = memo(function EmptyState({
   title,
   message,
 }: {
@@ -22,7 +22,7 @@ export function EmptyState({
       ) : null}
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   center: {

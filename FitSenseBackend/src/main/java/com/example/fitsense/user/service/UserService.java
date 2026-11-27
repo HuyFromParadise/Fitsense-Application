@@ -7,6 +7,7 @@ import com.example.fitsense.user.dto.UserResponse;
 import com.example.fitsense.user.dto.UserUpdateRequest;
 import com.example.fitsense.user.entity.UserEntity;
 import com.example.fitsense.user.repository.UserRepository;
+import com.google.cloud.firestore.DocumentReference;
 import com.google.cloud.firestore.Firestore;
 import com.google.firebase.FirebaseApp;
 import com.google.firebase.auth.FirebaseAuth;
@@ -91,7 +92,10 @@ public class UserService {
         if (!FirebaseApp.getApps().isEmpty()) {
             try {
                 Firestore firestore = FirestoreClient.getFirestore();
-                firestore.collection("users").document(authUser.uid()).delete();
+                DocumentReference userDoc = firestore.collection("users").document(authUser.uid());
+                deleteFirestoreDoc(userDoc.collection("profile").document("main"));
+                deleteFirestoreDoc(userDoc.collection("preferences").document("settings"));
+                deleteFirestoreDoc(userDoc);
                 FirebaseAuth.getInstance().deleteUser(authUser.uid());
                 log.info("Deleted user {} from Firestore and Firebase Auth", authUser.uid());
             } catch (Exception e) {
@@ -148,6 +152,14 @@ public class UserService {
             log.debug("Successfully mirrored profile of {} to Firestore", user.getFirebaseUid());
         } catch (Exception e) {
             log.warn("Could not sync profile to Firestore for {}: {}", user.getFirebaseUid(), e.getMessage());
+        }
+    }
+
+    private void deleteFirestoreDoc(DocumentReference ref) {
+        try {
+            ref.delete().get();
+        } catch (Exception e) {
+            log.warn("Failed to delete Firestore document {}: {}", ref.getPath(), e.getMessage());
         }
     }
 }

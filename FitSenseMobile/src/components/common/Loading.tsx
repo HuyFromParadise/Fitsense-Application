@@ -1,9 +1,9 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
 import { useTheme } from '../../app/providers/ThemeProvider';
 
-export function Loading({ message }: { message?: string }) {
+export const Loading = memo(function Loading({ message }: { message?: string }) {
   const { colors, spacing, typography } = useTheme();
 
   return (
@@ -16,7 +16,7 @@ export function Loading({ message }: { message?: string }) {
       ) : null}
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   center: {

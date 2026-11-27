@@ -20,6 +20,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.YearMonth;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.UUID;
@@ -119,11 +120,11 @@ class AnalyticsServiceTest {
                 handler.processRow(rs);
             } else if (sql.contains("exercise_sessions") && currentExerciseStart.equals(startArg)) {
                 ResultSet rs = mock(ResultSet.class);
-                when(rs.getDate("session_date")).thenReturn(Date.valueOf(sampleDay));
-                when(rs.getInt("session_count")).thenReturn(1);
-                when(rs.getLong("total_duration")).thenReturn(1800L);
-                when(rs.getDouble("total_distance")).thenReturn(5000.0);
-                when(rs.getDouble("total_calories")).thenReturn(350.0);
+                when(rs.getTimestamp("started_at"))
+                        .thenReturn(Timestamp.from(Instant.parse("2026-11-10T06:00:00Z")));
+                when(rs.getLong("duration_seconds")).thenReturn(1800L);
+                when(rs.getDouble("distance_m")).thenReturn(5000.0);
+                when(rs.getDouble("calories")).thenReturn(350.0);
                 handler.processRow(rs);
             }
             return null;
@@ -144,5 +145,46 @@ class AnalyticsServiceTest {
         assertThat(res.bestDay()).isEqualTo(sampleDay);
         assertThat(res.goalCompletionRate()).isEqualTo(0.14);
         assertThat(res.previous().totalSteps()).isZero();
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void getWeeklyAnalytics_groupsExerciseByRequestedTimezone() {
+        CurrentUser authUser = new CurrentUser("uid-1", "a@fitsense.app");
+        when(userService.getOrCreateCurrentUser(authUser)).thenReturn(
+                UserResponse.builder().id(UUID.randomUUID()).email("a@fitsense.app").build()
+        );
+
+        ZoneId vn = ZoneId.of("Asia/Ho_Chi_Minh");
+        LocalDate weekStart = LocalDate.of(2026, 11, 9);
+        Timestamp expectedStart = Timestamp.from(weekStart.atStartOfDay(vn).toInstant());
+
+        doAnswer(invocation -> {
+            String sql = invocation.getArgument(0);
+            RowCallbackHandler handler = invocation.getArgument(1);
+            Object startArg = invocation.getArgument(3);
+            if (sql.contains("exercise_sessions") && expectedStart.equals(startArg)) {
+                ResultSet rs = mock(ResultSet.class);
+                // 2026-11-09T18:00:00Z is 2026-11-10 01:00+07:00 in Asia/Ho_Chi_Minh
+                when(rs.getTimestamp("started_at"))
+                        .thenReturn(Timestamp.from(Instant.parse("2026-11-09T18:00:00Z")));
+                when(rs.getLong("duration_seconds")).thenReturn(1200L);
+                when(rs.getDouble("distance_m")).thenReturn(3000.0);
+                when(rs.getDouble("calories")).thenReturn(200.0);
+                handler.processRow(rs);
+            }
+            return null;
+        }).when(jdbcTemplate).query(anyString(), any(RowCallbackHandler.class), any(Object[].class));
+
+        when(jdbcTemplate.query(anyString(), any(RowMapper.class), any(Object[].class)))
+                .thenReturn(List.of());
+
+        PeriodAnalyticsResponse res = analyticsService.getWeeklyAnalytics(
+                authUser, weekStart, "Asia/Ho_Chi_Minh");
+
+        assertThat(res.dailyBreakdown().get(0).date()).isEqualTo(LocalDate.of(2026, 11, 9));
+        assertThat(res.dailyBreakdown().get(0).exerciseCount()).isZero();
+        assertThat(res.dailyBreakdown().get(1).date()).isEqualTo(LocalDate.of(2026, 11, 10));
+        assertThat(res.dailyBreakdown().get(1).exerciseCount()).isEqualTo(1);
     }
 }

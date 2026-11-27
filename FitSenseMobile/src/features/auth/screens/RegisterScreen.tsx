@@ -1,3 +1,4 @@
+import { zodResolver } from '@hookform/resolvers/zod';
 import {
   createUserWithEmailAndPassword,
   getAuth,
@@ -5,7 +6,10 @@ import {
 } from '@react-native-firebase/auth';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import React, { useState } from 'react';
-import { Alert, ScrollView, Text } from 'react-native';
+import { Controller, useForm } from 'react-hook-form';
+import { Alert, KeyboardAvoidingView, Platform, ScrollView, Text } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { z } from 'zod';
 
 import { useTheme } from '../../../app/providers/ThemeProvider';
 import type { AuthStackParamList } from '../../../app/navigation/types';
@@ -14,98 +18,140 @@ import { authErrorMessage } from './authErrors';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'Register'>;
 
+const registerSchema = z
+  .object({
+    displayName: z.string().trim().min(1, 'Vui lòng nhập họ và tên'),
+    email: z.string().trim().min(1, 'Vui lòng nhập email').email('Email không hợp lệ'),
+    password: z.string().min(6, 'Mật khẩu phải từ 6 ký tự'),
+    confirmPassword: z.string().min(1, 'Vui lòng xác nhận mật khẩu'),
+  })
+  .refine(values => values.password === values.confirmPassword, {
+    message: 'Mật khẩu xác nhận không khớp',
+    path: ['confirmPassword'],
+  });
+
+type RegisterValues = z.infer<typeof registerSchema>;
+
 export function RegisterScreen({ navigation }: Props) {
   const { colors, spacing, typography } = useTheme();
-  const [displayName, setDisplayName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
 
-  const handleRegister = async () => {
-    const nextErrors: Record<string, string> = {};
-    if (!displayName.trim()) nextErrors.displayName = 'Vui lòng nhập họ và tên';
-    if (!email.trim()) nextErrors.email = 'Vui lòng nhập email';
-    else if (!/\S+@\S+\.\S+/.test(email.trim())) nextErrors.email = 'Email không hợp lệ';
-    if (!password) nextErrors.password = 'Vui lòng nhập mật khẩu';
-    else if (password.length < 6) nextErrors.password = 'Mật khẩu phải từ 6 ký tự';
-    if (confirmPassword !== password) {
-      nextErrors.confirmPassword = 'Mật khẩu xác nhận không khớp';
-    }
-    setErrors(nextErrors);
-    if (Object.keys(nextErrors).length > 0) return;
+  const {
+    control,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<RegisterValues>({
+    resolver: zodResolver(registerSchema),
+    defaultValues: {
+      displayName: '',
+      email: '',
+      password: '',
+      confirmPassword: '',
+    },
+  });
 
+  const handleRegister = handleSubmit(async values => {
     setLoading(true);
     try {
       const credential = await createUserWithEmailAndPassword(
         getAuth(),
-        email.trim(),
-        password,
+        values.email.trim(),
+        values.password,
       );
       await updateProfile(credential.user, {
-        displayName: displayName.trim(),
+        displayName: values.displayName.trim(),
       });
     } catch (error: any) {
       Alert.alert('Đăng ký thất bại', authErrorMessage(error?.code));
     } finally {
       setLoading(false);
     }
-  };
+  });
 
   return (
-    <ScrollView
-      contentContainerStyle={{
-        flexGrow: 1,
-        justifyContent: 'center',
-        padding: spacing.lg,
-        gap: spacing.lg,
-      }}>
-      <Text style={[typography.title, { color: colors.text }]}>Tạo tài khoản</Text>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <ScrollView
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={{
+            flexGrow: 1,
+            justifyContent: 'center',
+            padding: spacing.lg,
+            gap: spacing.lg,
+          }}>
+          <Text style={[typography.title, { color: colors.text }]}>Tạo tài khoản</Text>
 
-      <Card style={{ gap: spacing.md }}>
-        <Input
-          label="Họ và tên"
-          placeholder="Nguyễn Văn A"
-          value={displayName}
-          onChangeText={setDisplayName}
-          error={errors.displayName}
-        />
-        <Input
-          label="Email"
-          placeholder="you@example.com"
-          autoCapitalize="none"
-          autoComplete="email"
-          keyboardType="email-address"
-          value={email}
-          onChangeText={setEmail}
-          error={errors.email}
-        />
-        <Input
-          label="Mật khẩu"
-          placeholder="Tối thiểu 6 ký tự"
-          secureTextEntry
-          autoComplete="new-password"
-          value={password}
-          onChangeText={setPassword}
-          error={errors.password}
-        />
-        <Input
-          label="Xác nhận mật khẩu"
-          placeholder="Nhập lại mật khẩu"
-          secureTextEntry
-          autoComplete="new-password"
-          value={confirmPassword}
-          onChangeText={setConfirmPassword}
-          error={errors.confirmPassword}
-        />
-        <Button title="Đăng ký" onPress={handleRegister} loading={loading} />
-        <Button
-          title="Đã có tài khoản? Đăng nhập"
-          variant="ghost"
-          onPress={() => navigation.goBack()}
-        />
-      </Card>
-    </ScrollView>
+          <Card style={{ gap: spacing.md }}>
+            <Controller
+              control={control}
+              name="displayName"
+              render={({ field: { onChange, value } }) => (
+                <Input
+                  label="Họ và tên"
+                  placeholder="Nguyễn Văn A"
+                  value={value}
+                  onChangeText={onChange}
+                  error={errors.displayName?.message}
+                />
+              )}
+            />
+            <Controller
+              control={control}
+              name="email"
+              render={({ field: { onChange, value } }) => (
+                <Input
+                  label="Email"
+                  placeholder="you@example.com"
+                  autoCapitalize="none"
+                  autoComplete="email"
+                  keyboardType="email-address"
+                  value={value}
+                  onChangeText={onChange}
+                  error={errors.email?.message}
+                />
+              )}
+            />
+            <Controller
+              control={control}
+              name="password"
+              render={({ field: { onChange, value } }) => (
+                <Input
+                  label="Mật khẩu"
+                  placeholder="Tối thiểu 6 ký tự"
+                  secureTextEntry
+                  autoComplete="new-password"
+                  value={value}
+                  onChangeText={onChange}
+                  error={errors.password?.message}
+                />
+              )}
+            />
+            <Controller
+              control={control}
+              name="confirmPassword"
+              render={({ field: { onChange, value } }) => (
+                <Input
+                  label="Xác nhận mật khẩu"
+                  placeholder="Nhập lại mật khẩu"
+                  secureTextEntry
+                  autoComplete="new-password"
+                  value={value}
+                  onChangeText={onChange}
+                  error={errors.confirmPassword?.message}
+                />
+              )}
+            />
+            <Button title="Đăng ký" onPress={handleRegister} loading={loading} />
+            <Button
+              title="Đã có tài khoản? Đăng nhập"
+              variant="ghost"
+              onPress={() => navigation.goBack()}
+            />
+          </Card>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }

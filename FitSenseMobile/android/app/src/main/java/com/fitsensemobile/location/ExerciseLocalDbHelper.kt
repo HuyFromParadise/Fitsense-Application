@@ -1,9 +1,13 @@
 package com.fitsensemobile.location
 
-import android.content.ContentValues
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
-import android.database.sqlite.SQLiteOpenHelper
+import com.fitsensemobile.database.FitSenseDatabase
+import com.fitsensemobile.database.entity.LocalExerciseEntity
+import com.fitsensemobile.database.entity.LocalGpsPointEntity
+import kotlinx.coroutines.runBlocking
+import java.util.concurrent.Callable
+import java.util.concurrent.Executors
 
 data class LocalExerciseRecord(
     val id: String,
@@ -31,12 +35,21 @@ data class LocalGpsPointRecord(
     val recordedAtMs: Long
 )
 
-class ExerciseLocalDbHelper(context: Context) :
-    SQLiteOpenHelper(context.applicationContext, DATABASE_NAME, null, DATABASE_VERSION) {
+/**
+ * Thống nhất lưu buổi tập & GPS points vào Room `FitSenseDatabase` (`fitsense.db`)
+ * trên thread riêng, đồng thời tự migrate dữ liệu cũ từ `fitsense_exercise.db` nếu còn tồn tại.
+ */
+class ExerciseLocalDbHelper private constructor(context: Context) {
+
+    private val appContext = context.applicationContext
+    private val db by lazy { FitSenseDatabase.getInstance(appContext) }
+    private val executor = Executors.newSingleThreadExecutor()
+
+    @Volatile
+    private var migratedLegacy = false
 
     companion object {
-        private const val DATABASE_NAME = "fitsense_exercise.db"
-        private const val DATABASE_VERSION = 1
+        private const val LEGACY_DATABASE_NAME = "fitsense_exercise.db"
 
         @Volatile
         private var instance: ExerciseLocalDbHelper? = null
@@ -48,74 +61,111 @@ class ExerciseLocalDbHelper(context: Context) :
         }
     }
 
-    override fun onConfigure(db: SQLiteDatabase) {
-        super.onConfigure(db)
-        db.setForeignKeyConstraintsEnabled(true)
+    private fun <T> runOnDbThread(block: suspend () -> T): T {
+        return executor.submit(Callable {
+            runBlocking {
+                migrateLegacyDatabaseIfNeeded()
+                block()
+            }
+        }).get()
     }
 
-    override fun onCreate(db: SQLiteDatabase) {
-        db.execSQL(
-            """
-            CREATE TABLE IF NOT EXISTS local_exercise (
-                id TEXT PRIMARY KEY,
-                type TEXT NOT NULL,
-                status TEXT NOT NULL,
-                started_at INTEGER NOT NULL,
-                ended_at INTEGER,
-                paused_total_ms INTEGER NOT NULL DEFAULT 0,
-                distance_m REAL NOT NULL DEFAULT 0,
-                duration_seconds INTEGER NOT NULL DEFAULT 0,
-                calories REAL NOT NULL DEFAULT 0,
-                avg_pace_sec_per_km REAL,
-                point_count INTEGER NOT NULL DEFAULT 0,
-                updated_at INTEGER NOT NULL,
-                sync_state TEXT NOT NULL DEFAULT 'PENDING'
+    private suspend fun migrateLegacyDatabaseIfNeeded() {
+        if (migratedLegacy) return
+        migratedLegacy = true
+
+        val legacyFile = appContext.getDatabasePath(LEGACY_DATABASE_NAME)
+        if (!legacyFile.exists()) return
+
+        val migrated = runCatching {
+            val legacyDb = SQLiteDatabase.openDatabase(
+                legacyFile.path,
+                null,
+                SQLiteDatabase.OPEN_READONLY,
             )
-            """.trimIndent()
-        )
+            legacyDb.use { sqlDb ->
+                val exercises = mutableListOf<LocalExerciseEntity>()
+                sqlDb.rawQuery("SELECT * FROM local_exercise", null).use { c ->
+                    while (c.moveToNext()) {
+                        val endedIdx = c.getColumnIndexOrThrow("ended_at")
+                        val paceIdx = c.getColumnIndexOrThrow("avg_pace_sec_per_km")
+                        exercises.add(
+                            LocalExerciseEntity(
+                                id = c.getString(c.getColumnIndexOrThrow("id")),
+                                type = c.getString(c.getColumnIndexOrThrow("type")),
+                                status = c.getString(c.getColumnIndexOrThrow("status")),
+                                startedAt = c.getLong(c.getColumnIndexOrThrow("started_at")),
+                                endedAt = if (c.isNull(endedIdx)) null else c.getLong(endedIdx),
+                                pausedTotalMs = c.getLong(c.getColumnIndexOrThrow("paused_total_ms")),
+                                distanceM = c.getDouble(c.getColumnIndexOrThrow("distance_m")),
+                                durationSeconds = c.getInt(c.getColumnIndexOrThrow("duration_seconds")),
+                                calories = c.getDouble(c.getColumnIndexOrThrow("calories")),
+                                avgPaceSecPerKm = if (c.isNull(paceIdx)) null else c.getDouble(paceIdx),
+                                pointCount = c.getInt(c.getColumnIndexOrThrow("point_count")),
+                                updatedAt = c.getLong(c.getColumnIndexOrThrow("updated_at")),
+                                syncState = c.getString(c.getColumnIndexOrThrow("sync_state")),
+                            ),
+                        )
+                    }
+                }
+                for (ex in exercises) {
+                    db.localExerciseDao().insertIgnore(ex)
+                }
 
-        db.execSQL(
-            """
-            CREATE TABLE IF NOT EXISTS local_gps_points (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                session_id TEXT NOT NULL,
-                seq INTEGER NOT NULL,
-                latitude REAL NOT NULL,
-                longitude REAL NOT NULL,
-                altitude_m REAL,
-                speed_mps REAL,
-                accuracy_m REAL,
-                recorded_at INTEGER NOT NULL,
-                synced INTEGER NOT NULL DEFAULT 0,
-                FOREIGN KEY (session_id) REFERENCES local_exercise(id) ON DELETE CASCADE
-            )
-            """.trimIndent()
-        )
+                val points = mutableListOf<LocalGpsPointEntity>()
+                sqlDb.rawQuery(
+                    "SELECT session_id, seq, latitude, longitude, altitude_m, speed_mps, accuracy_m, recorded_at, synced FROM local_gps_points",
+                    null,
+                ).use { c ->
+                    while (c.moveToNext()) {
+                        points.add(
+                            LocalGpsPointEntity(
+                                id = 0L,
+                                sessionId = c.getString(0),
+                                seq = c.getInt(1),
+                                latitude = c.getDouble(2),
+                                longitude = c.getDouble(3),
+                                altitudeM = if (c.isNull(4)) null else c.getDouble(4),
+                                speedMps = if (c.isNull(5)) null else c.getDouble(5),
+                                accuracyM = if (c.isNull(6)) null else c.getDouble(6),
+                                recordedAt = c.getLong(7),
+                                synced = c.getInt(8) != 0,
+                            ),
+                        )
+                    }
+                }
+                if (points.isNotEmpty()) {
+                    db.localGpsPointDao().insertAllIgnore(points)
+                }
+            }
+            true
+        }.getOrDefault(false)
 
-        db.execSQL(
-            "CREATE UNIQUE INDEX IF NOT EXISTS idx_gps_session_seq ON local_gps_points(session_id, seq)"
-        )
-    }
-
-    override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
-        // Future migrations here
+        if (migrated) {
+            appContext.deleteDatabase(LEGACY_DATABASE_NAME)
+        }
     }
 
     fun insertSession(id: String, type: String, startedAtMs: Long) {
-        val values = ContentValues().apply {
-            put("id", id)
-            put("type", type)
-            put("status", "ACTIVE")
-            put("started_at", startedAtMs)
-            put("paused_total_ms", 0L)
-            put("distance_m", 0.0)
-            put("duration_seconds", 0)
-            put("calories", 0.0)
-            put("point_count", 0)
-            put("updated_at", startedAtMs)
-            put("sync_state", "PENDING")
+        runOnDbThread {
+            db.localExerciseDao().insert(
+                LocalExerciseEntity(
+                    id = id,
+                    type = type,
+                    status = "ACTIVE",
+                    startedAt = startedAtMs,
+                    endedAt = null,
+                    pausedTotalMs = 0L,
+                    distanceM = 0.0,
+                    durationSeconds = 0,
+                    calories = 0.0,
+                    avgPaceSecPerKm = null,
+                    pointCount = 0,
+                    updatedAt = startedAtMs,
+                    syncState = "PENDING",
+                ),
+            )
         }
-        writableDatabase.insertWithOnConflict("local_exercise", null, values, SQLiteDatabase.CONFLICT_REPLACE)
     }
 
     fun updateSessionProgress(
@@ -128,142 +178,95 @@ class ExerciseLocalDbHelper(context: Context) :
         calories: Double,
         avgPaceSecPerKm: Double?,
         pointCount: Int,
-        syncState: String = "PENDING"
+        syncState: String = "PENDING",
     ) {
-        val values = ContentValues().apply {
-            put("status", status)
-            if (endedAtMs != null) put("ended_at", endedAtMs) else putNull("ended_at")
-            put("paused_total_ms", pausedTotalMs)
-            put("distance_m", distanceM)
-            put("duration_seconds", durationSeconds)
-            put("calories", calories)
-            if (avgPaceSecPerKm != null) put("avg_pace_sec_per_km", avgPaceSecPerKm) else putNull("avg_pace_sec_per_km")
-            put("point_count", pointCount)
-            put("updated_at", System.currentTimeMillis())
-            put("sync_state", syncState)
+        runOnDbThread {
+            db.localExerciseDao().updateProgress(
+                id = id,
+                status = status,
+                endedAt = endedAtMs,
+                pausedTotalMs = pausedTotalMs,
+                distanceM = distanceM,
+                durationSeconds = durationSeconds,
+                calories = calories,
+                avgPaceSecPerKm = avgPaceSecPerKm,
+                pointCount = pointCount,
+                updatedAt = System.currentTimeMillis(),
+                syncState = syncState,
+            )
         }
-        writableDatabase.update("local_exercise", values, "id = ?", arrayOf(id))
     }
 
     fun insertGpsPoint(sessionId: String, point: LocalGpsPointRecord) {
-        val values = ContentValues().apply {
-            put("session_id", sessionId)
-            put("seq", point.seq)
-            put("latitude", point.latitude)
-            put("longitude", point.longitude)
-            if (point.altitudeM != null) put("altitude_m", point.altitudeM) else putNull("altitude_m")
-            if (point.speedMps != null) put("speed_mps", point.speedMps) else putNull("speed_mps")
-            if (point.accuracyM != null) put("accuracy_m", point.accuracyM) else putNull("accuracy_m")
-            put("recorded_at", point.recordedAtMs)
-            put("synced", 0)
+        runOnDbThread {
+            db.localGpsPointDao().insertIgnore(
+                LocalGpsPointEntity(
+                    id = 0L,
+                    sessionId = sessionId,
+                    seq = point.seq,
+                    latitude = point.latitude,
+                    longitude = point.longitude,
+                    altitudeM = point.altitudeM,
+                    speedMps = point.speedMps,
+                    accuracyM = point.accuracyM,
+                    recordedAt = point.recordedAtMs,
+                    synced = false,
+                ),
+            )
         }
-        writableDatabase.insertWithOnConflict("local_gps_points", null, values, SQLiteDatabase.CONFLICT_IGNORE)
     }
 
-    fun getActiveSession(): LocalExerciseRecord? {
-        val cursor = readableDatabase.rawQuery(
-            "SELECT * FROM local_exercise WHERE status IN ('ACTIVE', 'PAUSED') ORDER BY started_at DESC LIMIT 1",
-            null
-        )
-        cursor.use {
-            if (it.moveToFirst()) {
-                return readExerciseRow(it)
-            }
-        }
-        return null
-    }
+    fun getActiveSession(): LocalExerciseRecord? =
+        runOnDbThread { db.localExerciseDao().getActiveSession()?.toRecord() }
 
-    fun getSessionById(sessionId: String): LocalExerciseRecord? {
-        val cursor = readableDatabase.rawQuery(
-            "SELECT * FROM local_exercise WHERE id = ? LIMIT 1",
-            arrayOf(sessionId)
-        )
-        cursor.use {
-            if (it.moveToFirst()) {
-                return readExerciseRow(it)
-            }
-        }
-        return null
-    }
+    fun getSessionById(sessionId: String): LocalExerciseRecord? =
+        runOnDbThread { db.localExerciseDao().getById(sessionId)?.toRecord() }
 
-    fun getLocalExercises(limit: Int, offset: Int): List<LocalExerciseRecord> {
-        val result = mutableListOf<LocalExerciseRecord>()
-        val cursor = readableDatabase.rawQuery(
-            "SELECT * FROM local_exercise ORDER BY started_at DESC LIMIT ? OFFSET ?",
-            arrayOf(limit.toString(), offset.toString())
-        )
-        cursor.use {
-            while (it.moveToNext()) {
-                result.add(readExerciseRow(it))
-            }
-        }
-        return result
-    }
+    fun getLocalExercises(limit: Int, offset: Int): List<LocalExerciseRecord> =
+        runOnDbThread { db.localExerciseDao().getPage(limit, offset).map { it.toRecord() } }
 
-    fun getSessionPoints(sessionId: String): List<LocalGpsPointRecord> {
-        val result = mutableListOf<LocalGpsPointRecord>()
-        val cursor = readableDatabase.rawQuery(
-            "SELECT seq, latitude, longitude, altitude_m, speed_mps, accuracy_m, recorded_at FROM local_gps_points WHERE session_id = ? ORDER BY seq ASC",
-            arrayOf(sessionId)
-        )
-        cursor.use {
-            while (it.moveToNext()) {
-                result.add(
-                    LocalGpsPointRecord(
-                        seq = it.getInt(0),
-                        latitude = it.getDouble(1),
-                        longitude = it.getDouble(2),
-                        altitudeM = if (it.isNull(3)) null else it.getDouble(3),
-                        speedMps = if (it.isNull(4)) null else it.getDouble(4),
-                        accuracyM = if (it.isNull(5)) null else it.getDouble(5),
-                        recordedAtMs = it.getLong(6)
-                    )
-                )
-            }
-        }
-        return result
-    }
+    fun getSessionPoints(sessionId: String): List<LocalGpsPointRecord> =
+        runOnDbThread { db.localGpsPointDao().getBySession(sessionId).map { it.toRecord() } }
 
-    fun getPendingSyncSessions(limit: Int = 20): List<LocalExerciseRecord> {
-        val result = mutableListOf<LocalExerciseRecord>()
-        val cursor = readableDatabase.rawQuery(
-            "SELECT * FROM local_exercise WHERE status = 'FINISHED' AND sync_state IN ('PENDING', 'FAILED') ORDER BY started_at ASC LIMIT ?",
-            arrayOf(limit.toString())
-        )
-        cursor.use {
-            while (it.moveToNext()) {
-                result.add(readExerciseRow(it))
-            }
-        }
-        return result
-    }
+    fun getPendingSyncSessions(limit: Int = 20): List<LocalExerciseRecord> =
+        runOnDbThread { db.localExerciseDao().getPendingSync(limit).map { it.toRecord() } }
 
     fun markSessionSynced(sessionId: String) {
-        val values = ContentValues().apply {
-            put("sync_state", "SYNCED")
-            put("updated_at", System.currentTimeMillis())
+        runOnDbThread {
+            db.localExerciseDao().markSyncState(sessionId, "SYNCED", System.currentTimeMillis())
+            db.localGpsPointDao().markSyncedBySession(sessionId)
         }
-        writableDatabase.update("local_exercise", values, "id = ?", arrayOf(sessionId))
-
-        val pointValues = ContentValues().apply { put("synced", 1) }
-        writableDatabase.update("local_gps_points", pointValues, "session_id = ?", arrayOf(sessionId))
     }
 
-    private fun readExerciseRow(c: android.database.Cursor): LocalExerciseRecord {
-        return LocalExerciseRecord(
-            id = c.getString(c.getColumnIndexOrThrow("id")),
-            type = c.getString(c.getColumnIndexOrThrow("type")),
-            status = c.getString(c.getColumnIndexOrThrow("status")),
-            startedAtMs = c.getLong(c.getColumnIndexOrThrow("started_at")),
-            endedAtMs = c.getColumnIndexOrThrow("ended_at").let { if (c.isNull(it)) null else c.getLong(it) },
-            pausedTotalMs = c.getLong(c.getColumnIndexOrThrow("paused_total_ms")),
-            distanceM = c.getDouble(c.getColumnIndexOrThrow("distance_m")),
-            durationSeconds = c.getInt(c.getColumnIndexOrThrow("duration_seconds")),
-            calories = c.getDouble(c.getColumnIndexOrThrow("calories")),
-            avgPaceSecPerKm = c.getColumnIndexOrThrow("avg_pace_sec_per_km").let { if (c.isNull(it)) null else c.getDouble(it) },
-            pointCount = c.getInt(c.getColumnIndexOrThrow("point_count")),
-            updatedAtMs = c.getLong(c.getColumnIndexOrThrow("updated_at")),
-            syncState = c.getString(c.getColumnIndexOrThrow("sync_state"))
-        )
+    fun clearAllExercises() {
+        runOnDbThread {
+            db.localExerciseDao().clearAll()
+        }
     }
+
+    private fun LocalExerciseEntity.toRecord() = LocalExerciseRecord(
+        id = id,
+        type = type,
+        status = status,
+        startedAtMs = startedAt,
+        endedAtMs = endedAt,
+        pausedTotalMs = pausedTotalMs,
+        distanceM = distanceM,
+        durationSeconds = durationSeconds,
+        calories = calories,
+        avgPaceSecPerKm = avgPaceSecPerKm,
+        pointCount = pointCount,
+        updatedAtMs = updatedAt,
+        syncState = syncState,
+    )
+
+    private fun LocalGpsPointEntity.toRecord() = LocalGpsPointRecord(
+        seq = seq,
+        latitude = latitude,
+        longitude = longitude,
+        altitudeM = altitudeM,
+        speedMps = speedMps,
+        accuracyM = accuracyM,
+        recordedAtMs = recordedAt,
+    )
 }

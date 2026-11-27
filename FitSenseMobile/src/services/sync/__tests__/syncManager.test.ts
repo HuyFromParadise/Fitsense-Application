@@ -16,9 +16,13 @@ jest.mock('@react-native-community/netinfo', () => ({
 jest.mock('../../native', () => ({
   LocalDb: {
     getUnsynced: jest.fn(async () => []),
+    getLocalExercises: jest.fn(async () => []),
+    getLocalExercisePoints: jest.fn(async () => []),
     upsertTodayActivity: jest.fn(async () => {}),
     markActivitySyncState: jest.fn(async () => {}),
+    markExerciseSyncState: jest.fn(async () => {}),
     clearAllActivities: jest.fn(async () => {}),
+    clearAllExercises: jest.fn(async () => {}),
   },
   Sync: {
     enqueue: jest.fn(async () => {}),
@@ -290,6 +294,41 @@ test('clearLocalData stops, syncs best effort, then clears both tables', async (
 
   expect(stop).toHaveBeenCalled();
   expect(LocalDbMock.clearAllActivities).toHaveBeenCalled();
+  expect(LocalDbMock.clearAllExercises).toHaveBeenCalled();
   expect(SyncMock.clearAll).toHaveBeenCalled();
   expect(useSyncStatus.getState().pending).toBe(0);
+});
+
+test('syncNow also reconciles queued EXERCISE rows and marks local exercise SYNCED', async () => {
+  const exerciseRow = {
+    id: 2,
+    entityType: 'EXERCISE' as const,
+    clientId: 'ex-uuid-1',
+    payloadJson: JSON.stringify({
+      id: 'ex-uuid-1',
+      type: 'RUNNING',
+      status: 'FINISHED',
+      startedAt: '2026-11-16T00:00:00Z',
+      endedAt: '2026-11-16T00:30:00Z',
+      pausedSeconds: 0,
+      gpsPoints: [],
+      metrics: { distanceM: 3000, durationSeconds: 1800, avgPaceSecPerKm: 600, avgSpeedMps: 1.67, calories: 250 },
+    }),
+    attempts: 0,
+    nextAttemptAtMs: 0,
+  };
+
+  SyncMock.getDue
+    .mockResolvedValueOnce([])
+    .mockResolvedValueOnce([exerciseRow])
+    .mockResolvedValue([]);
+  syncApi.mockResolvedValueOnce([
+    { entityType: 'EXERCISE', clientId: 'ex-uuid-1', status: 'CREATED' },
+  ]);
+
+  const result = await syncManager.syncNow();
+
+  expect(result).toEqual({ processed: 1, failed: 0 });
+  expect(LocalDbMock.markExerciseSyncState).toHaveBeenCalledWith('ex-uuid-1', 'SYNCED');
+  expect(SyncMock.markSynced).toHaveBeenCalledWith([2]);
 });
