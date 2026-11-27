@@ -315,6 +315,16 @@ class LocationForegroundService : Service(), LocationListener {
         }
 
         val previous = lastValidLocation
+        // Prefer GPS over coarse network fixes when a recent GPS fix exists
+        if (previous != null &&
+            previous.provider == LocationManager.GPS_PROVIDER &&
+            location.provider == LocationManager.NETWORK_PROVIDER &&
+            (location.time - previous.time) < 15_000L
+        ) {
+            return
+        }
+
+        var computedSpeedMps: Double? = if (location.hasSpeed()) location.speed.toDouble() else null
         if (previous != null) {
             val deltaM = haversineMeters(
                 previous.latitude, previous.longitude,
@@ -328,10 +338,14 @@ class LocationForegroundService : Service(), LocationListener {
 
             // Filter unrealistic GPS teleport spikes (> 45 m/s ~ 162 km/h)
             val dtSec = ((location.time - previous.time) / 1000.0).coerceAtLeast(0.5)
-            if (deltaM / dtSec > 45.0) {
+            val derivedSpeed = deltaM / dtSec
+            if (derivedSpeed > 45.0) {
                 return
             }
 
+            if (computedSpeedMps == null) {
+                computedSpeedMps = derivedSpeed
+            }
             totalDistanceM += deltaM
         }
 
@@ -342,7 +356,7 @@ class LocationForegroundService : Service(), LocationListener {
             latitude = location.latitude,
             longitude = location.longitude,
             altitudeM = if (location.hasAltitude()) location.altitude else null,
-            speedMps = if (location.hasSpeed()) location.speed.toDouble() else null,
+            speedMps = computedSpeedMps,
             accuracyM = if (location.hasAccuracy()) location.accuracy.toDouble() else null,
             recordedAtMs = location.time
         )

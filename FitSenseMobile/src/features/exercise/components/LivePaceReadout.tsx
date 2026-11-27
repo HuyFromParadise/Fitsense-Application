@@ -78,7 +78,7 @@ export const LivePaceReadout = memo(function LivePaceReadout({
         <MetricTile
           icon={<Flame size={14} color={colors.primary} strokeWidth={2} />}
           label="Calo"
-          value={calories.toFixed(0)}
+          value={calories < 10 ? calories.toFixed(1) : calories.toFixed(0)}
           unit="kcal"
           style={styles.metricCard}
         />
