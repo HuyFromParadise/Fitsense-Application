@@ -76,81 +76,88 @@ export function AnimatedSplashScreen({
         styles.root,
         {
           backgroundColor: colors.background,
-          paddingTop: insets.top + spacing.xl,
-          paddingBottom: Math.max(insets.bottom, spacing.xl),
-          paddingHorizontal: spacing.lg,
           opacity: entranceFade,
         },
       ]}>
-      {/* Centered FitSense Logo & Brand Tagline */}
-      <View style={[styles.brandCenterBlock, { gap: spacing.sm }]}>
-        <Animated.View
-          style={[
-            styles.logoBadge,
-            {
-              backgroundColor: colors.surface,
-              borderColor: colors.primary,
-              borderRadius: radius.lg,
-              transform: [{ scale: pulseScale }],
-            },
-          ]}>
-          <Image
-            source={FITSENSE_LOGO}
-            style={styles.logoImage}
-            resizeMode="cover"
-            accessibilityLabel="Logo FitSense"
-          />
-        </Animated.View>
+      {/* Full-screen borderless animated runner background */}
+      <RunnerAnimation fullScreen />
 
-        <Text
-          style={[
-            typography.title,
-            styles.brandName,
-            isCompactWidth ? styles.brandNameCompact : styles.brandNameRegular,
-            { color: colors.text },
-          ]}>
-          FitSense
-        </Text>
-
-        <Text
-          style={[
-            typography.heading,
-            styles.taglineText,
-            { color: colors.primary },
-          ]}>
-          Move Better. Live Healthier.
-        </Text>
-      </View>
-
-      {/* Animated Runner SVG on Road with Parallax Background & Dust Trail */}
-      <View style={styles.mascotSection}>
-        <RunnerAnimation height={248} />
-      </View>
-
-      {/* Subtle Loading Indicator */}
-      <View style={[styles.footerSection, { gap: spacing.sm }]}>
-        <View
-          style={[
-            styles.progressTrack,
-            {
-              backgroundColor: colors.surfaceAlt,
-              borderRadius: radius.pill,
-            },
-          ]}>
+      {/* Foreground brand header & loading footer */}
+      <View
+        pointerEvents="none"
+        style={[
+          styles.foreground,
+          {
+            paddingTop: insets.top + spacing.xxl,
+            paddingBottom: Math.max(insets.bottom, spacing.xl),
+            paddingHorizontal: spacing.lg,
+          },
+        ]}>
+        {/* Centered FitSense Logo & Brand Tagline */}
+        <View style={[styles.brandCenterBlock, { gap: spacing.sm }]}>
           <Animated.View
             style={[
-              styles.progressThumb,
+              styles.logoBadge,
               {
-                backgroundColor: colors.primary,
-                borderRadius: radius.pill,
-                transform: [{ translateX: barTranslateX }],
+                backgroundColor: colors.surface,
+                borderColor: colors.primary,
+                borderRadius: radius.lg,
+                transform: [{ scale: pulseScale }],
               },
-            ]}
-          />
+            ]}>
+            <Image
+              source={FITSENSE_LOGO}
+              style={styles.logoImage}
+              resizeMode="cover"
+              accessibilityLabel="Logo FitSense"
+            />
+          </Animated.View>
+
+          <Text
+            style={[
+              typography.title,
+              styles.brandName,
+              isCompactWidth ? styles.brandNameCompact : styles.brandNameRegular,
+              { color: colors.text },
+            ]}>
+            FitSense
+          </Text>
+
+          <Text
+            style={[
+              typography.heading,
+              styles.taglineText,
+              { color: colors.primary },
+            ]}>
+            Move Better. Live Healthier.
+          </Text>
         </View>
-        <Text style={[typography.caption, { color: colors.textMuted }]}>
-          {message}
-        </Text>
+
+        {/* Subtle Loading Indicator */}
+        <View style={[styles.footerSection, { gap: spacing.sm }]}>
+          <View
+            style={[
+              styles.progressTrack,
+              {
+                backgroundColor: colors.surfaceAlt,
+                borderRadius: radius.pill,
+              },
+            ]}>
+            <Animated.View
+              style={[
+                styles.progressThumb,
+                {
+                  backgroundColor: colors.primary,
+                  borderRadius: radius.pill,
+                  transform: [{ translateX: barTranslateX }],
+                },
+              ]}
+            />
+          </View>
+          <Text style={[typography.caption, { color: colors.textMuted }]}>
+            {message}
+          </Text>
+        </View>
       </View>
     </Animated.View>
   );
@@ -160,6 +167,9 @@ export { AnimatedSplashScreen as SplashScreen };
 
 const styles = StyleSheet.create({
   root: {
+    flex: 1,
+  },
+  foreground: {
     flex: 1,
     justifyContent: 'space-between',
     alignItems: 'center',
