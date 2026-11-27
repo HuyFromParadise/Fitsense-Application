@@ -5,15 +5,18 @@ import {
   StyleSheet,
   ScrollView,
   Alert,
-  TouchableOpacity,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
   Image,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../../app/providers/ThemeProvider';
 import { Button, Input, Card, Loading } from '../../../components/common';
 import ThemeSwitch from '@/components/library/ThemeSwitch';
 import { useAuthStore } from '../../../stores/useAuthStore';
 import { useThemeStore } from '../../../stores/useThemeStore';
+import { tabularNums } from '../../../theme';
 import { useProfile } from '../useProfile';
 import { NotificationSettingsScreen } from '../../notifications/screens/NotificationSettingsScreen';
 
@@ -163,7 +166,17 @@ export function ProfileScreen() {
   const bmiInfo = getBmiCategory(currentBmi);
 
   return (
-    <ScrollView style={[styles.container, { backgroundColor: colors.background }]} contentContainerStyle={[styles.content, { padding: spacing.md, paddingTop: insets.top + spacing.md }]}>
+    <SafeAreaView edges={['top']} style={[styles.container, { backgroundColor: colors.background }]}>
+      <KeyboardAvoidingView
+        style={styles.container}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <ScrollView
+          keyboardShouldPersistTaps="handled"
+          style={[styles.container, { backgroundColor: colors.background }]}
+          contentContainerStyle={{
+            padding: spacing.md,
+            paddingBottom: Math.max(insets.bottom, spacing.xl),
+          }}>
       {/* Avatar & Header */}
       <View style={[styles.header, { marginVertical: spacing.lg }]}>
         <View style={[styles.avatarBadge, { backgroundColor: colors.primary }]}>
@@ -192,7 +205,7 @@ export function ProfileScreen() {
         <View style={styles.bmiRow}>
           <View>
             <Text style={[typography.caption, { color: colors.textMuted }]}>Chỉ số khối cơ thể (BMI)</Text>
-            <Text style={[typography.title, { color: colors.text, marginVertical: spacing.xs }]}>
+            <Text style={[typography.title, tabularNums, { color: colors.text, marginVertical: spacing.xs }]}>
               {currentBmi !== null ? currentBmi : '--'}
             </Text>
           </View>
@@ -265,14 +278,17 @@ export function ProfileScreen() {
         <Text style={[typography.label, { color: colors.textMuted, marginTop: spacing.xs }]}>Giới tính</Text>
         <View style={[styles.pillRow, { gap: spacing.sm }]}>
           {(['male', 'female', 'other'] as const).map((g) => (
-            <TouchableOpacity
+            <Pressable
               key={g}
-              style={[
+              accessibilityRole="button"
+              accessibilityState={{ selected: gender === g }}
+              style={({ pressed }) => [
                 styles.pill,
                 {
                   borderRadius: radius.md,
                   borderColor: gender === g ? colors.primary : colors.border,
-                  backgroundColor: gender === g ? colors.surfaceAlt : colors.surface,
+                  backgroundColor: gender === g ? colors.primaryMuted : colors.surface,
+                  opacity: pressed ? 0.85 : 1,
                 },
               ]}
               onPress={() => setGender(g)}
@@ -280,12 +296,12 @@ export function ProfileScreen() {
               <Text
                 style={[
                   typography.caption,
-                  { color: gender === g ? colors.primary : colors.text },
+                  { color: gender === g ? colors.primary : colors.text, fontWeight: gender === g ? '700' : '400' },
                 ]}
               >
                 {g === 'male' ? 'Nam' : g === 'female' ? 'Nữ' : 'Khác'}
               </Text>
-            </TouchableOpacity>
+            </Pressable>
           ))}
         </View>
 
@@ -293,14 +309,17 @@ export function ProfileScreen() {
         <Text style={[typography.label, { color: colors.textMuted, marginTop: spacing.xs }]}>Mức độ vận động</Text>
         <View style={[styles.pillRow, { gap: spacing.sm }]}>
           {(['beginner', 'intermediate', 'advanced'] as const).map((lvl) => (
-            <TouchableOpacity
+            <Pressable
               key={lvl}
-              style={[
+              accessibilityRole="button"
+              accessibilityState={{ selected: fitnessLevel === lvl }}
+              style={({ pressed }) => [
                 styles.pill,
                 {
                   borderRadius: radius.md,
                   borderColor: fitnessLevel === lvl ? colors.primary : colors.border,
-                  backgroundColor: fitnessLevel === lvl ? colors.surfaceAlt : colors.surface,
+                  backgroundColor: fitnessLevel === lvl ? colors.primaryMuted : colors.surface,
+                  opacity: pressed ? 0.85 : 1,
                 },
               ]}
               onPress={() => setFitnessLevel(lvl)}
@@ -308,12 +327,12 @@ export function ProfileScreen() {
               <Text
                 style={[
                   typography.caption,
-                  { color: fitnessLevel === lvl ? colors.primary : colors.text },
+                  { color: fitnessLevel === lvl ? colors.primary : colors.text, fontWeight: fitnessLevel === lvl ? '700' : '400' },
                 ]}
               >
                 {lvl === 'beginner' ? 'Mới bắt đầu' : lvl === 'intermediate' ? 'Trung bình' : 'Nâng cao'}
               </Text>
-            </TouchableOpacity>
+            </Pressable>
           ))}
         </View>
 
@@ -365,7 +384,9 @@ export function ProfileScreen() {
           onPress={handleDeleteAccount}
         />
       </Card>
-    </ScrollView>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
@@ -418,6 +439,8 @@ const styles = StyleSheet.create({
   },
   pill: {
     flex: 1,
+    minHeight: 44,
+    justifyContent: 'center',
     paddingVertical: 10,
     borderWidth: 1,
     alignItems: 'center',

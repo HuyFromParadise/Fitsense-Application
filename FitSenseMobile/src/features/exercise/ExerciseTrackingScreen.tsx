@@ -1,27 +1,38 @@
+import Geolocation from '@react-native-community/geolocation';
+import {
+  CheckCircle2,
+  HardDrive,
+  History,
+  LocateFixed,
+  Square,
+  Trophy,
+} from 'lucide-react-native';
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  Modal,
-  Animated,
   Alert,
+  Animated,
+  Modal,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
 } from 'react-native';
-import MapView, { Polyline, Marker } from 'react-native-maps';
+import MapView, { Marker, Polyline } from 'react-native-maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
 import { useTheme } from '../../app/providers/ThemeProvider';
 import { Button, Card } from '../../components/common';
+import { tabularNums } from '../../theme';
+import { LivePaceReadout } from './components/LivePaceReadout';
 import {
   EXERCISE_TYPE_META,
   formatDistanceKm,
   formatDuration,
   formatPace,
-  formatSpeedKmh,
 } from './exerciseUtils';
 import { ExerciseType } from './types';
 import { useExerciseTracking } from './useExerciseTracking';
-import Geolocation from '@react-native-community/geolocation'
 
 interface ExerciseTrackingScreenProps {
   navigation: any;
@@ -118,6 +129,15 @@ export const ExerciseTrackingScreen: React.FC<ExerciseTrackingScreenProps> = ({
   const holdAnim = useRef(new Animated.Value(0)).current;
   const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [holdingFinish, setHoldingFinish] = useState(false);
+  const [holdWidth, setHoldWidth] = useState(0);
+
+  useEffect(() => {
+    return () => {
+      if (holdTimerRef.current) {
+        clearTimeout(holdTimerRef.current);
+      }
+    };
+  }, []);
 
   // Keep map centered on latest GPS point
   useEffect(() => {
@@ -141,7 +161,7 @@ export const ExerciseTrackingScreen: React.FC<ExerciseTrackingScreenProps> = ({
     Animated.timing(holdAnim, {
       toValue: 1,
       duration: 2000, // 2-second safety hold (Day 8 requirement)
-      useNativeDriver: false,
+      useNativeDriver: true,
     }).start();
 
     holdTimerRef.current = setTimeout(() => {
@@ -160,7 +180,7 @@ export const ExerciseTrackingScreen: React.FC<ExerciseTrackingScreenProps> = ({
     Animated.timing(holdAnim, {
       toValue: 0,
       duration: 150,
-      useNativeDriver: false,
+      useNativeDriver: true,
     }).start();
   };
   const handleFinishPress = () => {
@@ -199,9 +219,9 @@ export const ExerciseTrackingScreen: React.FC<ExerciseTrackingScreenProps> = ({
 
   const activeMeta = EXERCISE_TYPE_META[selectedType];
 
-  const holdWidthInterpolated = holdAnim.interpolate({
+  const holdTranslateX = holdAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: ['0%', '100%'],
+    outputRange: [-holdWidth / 2, 0],
   });
 
   return (
@@ -212,37 +232,51 @@ export const ExerciseTrackingScreen: React.FC<ExerciseTrackingScreenProps> = ({
           ref={mapRef}
           style={styles.map}
           initialRegion={DEFAULT_REGION}
+          customMapStyle={isDark ? DARK_MAP_STYLE : undefined}
           showsUserLocation
           showsMyLocationButton={false}
         >
-          {routeCoords.length > 0 && (
+          {routeCoords.length > 0 ? (
             <Marker
               coordinate={routeCoords[0]}
               title="Xuất phát"
-              pinColor="green"
+              pinColor={colors.success}
             />
-          )}
-          {routeCoords.length > 1 && (
+          ) : null}
+          {routeCoords.length > 1 ? (
             <Polyline
               coordinates={routeCoords}
               strokeColor={activeMeta.color}
               strokeWidth={5}
             />
-          )}
+          ) : null}
         </MapView>
 
         {/* Nút định vị vị trí hiện tại của tôi (Floating Location Button) */}
-        <TouchableOpacity
-          style={[
+        <Pressable
+          style={({ pressed }) => [
             styles.myLocationBtn,
-            { backgroundColor: colors.surface, borderColor: colors.border },
+            {
+              backgroundColor: colors.surface,
+              borderColor: colors.border,
+              opacity: pressed ? 0.85 : 1,
+            },
+            Platform.select({
+              ios: {
+                shadowColor: colors.text,
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.2,
+                shadowRadius: 4,
+              },
+              android: { elevation: 6 },
+            }),
           ]}
-          activeOpacity={0.8}
           onPress={goToMyCurrentLocation}
+          accessibilityRole="button"
           accessibilityLabel="Định vị vị trí của tôi"
         >
-          <Text style={styles.myLocationIcon}>📍</Text>
-        </TouchableOpacity>
+          <LocateFixed size={22} color={colors.primary} strokeWidth={2} />
+        </Pressable>
 
         {/* Top Bar Overlay */}
         <View
@@ -259,7 +293,7 @@ export const ExerciseTrackingScreen: React.FC<ExerciseTrackingScreenProps> = ({
             style={[
               styles.statusChip,
               {
-                backgroundColor: colors.surface + 'EE',
+                backgroundColor: colors.surface,
                 borderColor: colors.border,
               },
             ]}
@@ -291,25 +325,30 @@ export const ExerciseTrackingScreen: React.FC<ExerciseTrackingScreenProps> = ({
             </Text>
           </View>
 
-          <TouchableOpacity
-            style={[
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Xem lịch sử tập luyện"
+            style={({ pressed }) => [
               styles.historyBtn,
               {
-                backgroundColor: colors.surface + 'EE',
+                backgroundColor: colors.surface,
                 borderColor: colors.border,
+                opacity: pressed ? 0.85 : 1,
+                gap: spacing.xs,
               },
             ]}
             onPress={() => navigation.navigate('ExerciseHistory')}
           >
+            <History size={16} color={colors.primary} strokeWidth={2} />
             <Text
               style={[
                 typography.caption,
                 { color: colors.primary, fontWeight: '700' },
               ]}
             >
-              📜 Lịch sử
+              Lịch sử
             </Text>
-          </TouchableOpacity>
+          </Pressable>
         </View>
       </View>
 
@@ -320,12 +359,16 @@ export const ExerciseTrackingScreen: React.FC<ExerciseTrackingScreenProps> = ({
           {
             backgroundColor: colors.surface,
             borderColor: colors.border,
-            padding: spacing.md,
+            borderTopLeftRadius: radius.xl,
+            borderTopRightRadius: radius.xl,
+            paddingHorizontal: spacing.lg,
+            paddingTop: spacing.md,
+            paddingBottom: Math.max(insets.bottom, spacing.md),
           },
         ]}
       >
         {/* Exercise Type Selector (only when IDLE) */}
-        {status === 'IDLE' && (
+        {status === 'IDLE' ? (
           <View
             style={[
               styles.typeRow,
@@ -336,16 +379,19 @@ export const ExerciseTrackingScreen: React.FC<ExerciseTrackingScreenProps> = ({
               const meta = EXERCISE_TYPE_META[t];
               const isSelected = selectedType === t;
               return (
-                <TouchableOpacity
+                <Pressable
                   key={t}
-                  style={[
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: isSelected }}
+                  style={({ pressed }) => [
                     styles.typePill,
                     {
                       borderColor: isSelected ? meta.color : colors.border,
                       backgroundColor: isSelected
-                        ? meta.color + '25'
+                        ? colors.primaryMuted
                         : colors.surfaceAlt,
                       borderRadius: radius.md,
+                      opacity: pressed ? 0.85 : 1,
                     },
                   ]}
                   onPress={() => setSelectedType(t)}
@@ -362,144 +408,27 @@ export const ExerciseTrackingScreen: React.FC<ExerciseTrackingScreenProps> = ({
                   >
                     {meta.label}
                   </Text>
-                </TouchableOpacity>
+                </Pressable>
               );
             })}
           </View>
-        )}
+        ) : null}
 
-        {/* Primary Timer */}
-        <View style={[styles.timerContainer, { marginBottom: spacing.sm }]}>
-          <Text
-            style={[
-              typography.caption,
-              { color: colors.textMuted, letterSpacing: 1 },
-            ]}
-          >
-            THỜI GIAN
-          </Text>
-          <Text style={[styles.timerValue, { color: colors.text }]}>
-            {formatDuration(elapsedSeconds)}
-          </Text>
-        </View>
+        <LivePaceReadout
+          elapsedSeconds={elapsedSeconds}
+          distanceM={distanceM}
+          avgPaceSecPerKm={avgPaceSecPerKm}
+          currentSpeedMps={currentSpeedMps}
+          calories={calories}
+        />
 
-        {/* Metrics Grid */}
-        <View
-          style={[
-            styles.metricsGrid,
-            { gap: spacing.sm, marginBottom: spacing.md },
-          ]}
-        >
-          <Card
-            style={[
-              styles.metricCard,
-              {
-                backgroundColor: colors.background,
-                padding: spacing.sm + 2,
-                borderRadius: radius.md,
-              },
-            ]}
-          >
-            <Text
-              style={[
-                typography.caption,
-                { color: colors.textMuted, marginBottom: 2 },
-              ]}
-            >
-              Quãng đường
-            </Text>
-            <Text style={[typography.heading, { color: colors.text }]}>
-              {formatDistanceKm(distanceM)}{' '}
-              <Text style={[styles.unit, { color: colors.textMuted }]}>km</Text>
-            </Text>
-          </Card>
-
-          <Card
-            style={[
-              styles.metricCard,
-              {
-                backgroundColor: colors.background,
-                padding: spacing.sm + 2,
-                borderRadius: radius.md,
-              },
-            ]}
-          >
-            <Text
-              style={[
-                typography.caption,
-                { color: colors.textMuted, marginBottom: 2 },
-              ]}
-            >
-              Pace TB
-            </Text>
-            <Text style={[typography.heading, { color: colors.text }]}>
-              {formatPace(avgPaceSecPerKm)}{' '}
-              <Text style={[styles.unit, { color: colors.textMuted }]}>
-                /km
-              </Text>
-            </Text>
-          </Card>
-
-          <Card
-            style={[
-              styles.metricCard,
-              {
-                backgroundColor: colors.background,
-                padding: spacing.sm + 2,
-                borderRadius: radius.md,
-              },
-            ]}
-          >
-            <Text
-              style={[
-                typography.caption,
-                { color: colors.textMuted, marginBottom: 2 },
-              ]}
-            >
-              Tốc độ
-            </Text>
-            <Text style={[typography.heading, { color: colors.text }]}>
-              {formatSpeedKmh(currentSpeedMps)}{' '}
-              <Text style={[styles.unit, { color: colors.textMuted }]}>
-                km/h
-              </Text>
-            </Text>
-          </Card>
-
-          <Card
-            style={[
-              styles.metricCard,
-              {
-                backgroundColor: colors.background,
-                padding: spacing.sm + 2,
-                borderRadius: radius.md,
-              },
-            ]}
-          >
-            <Text
-              style={[
-                typography.caption,
-                { color: colors.textMuted, marginBottom: 2 },
-              ]}
-            >
-              Calo
-            </Text>
-            <Text style={[typography.heading, { color: colors.text }]}>
-              {calories.toFixed(0)}{' '}
-              <Text style={[styles.unit, { color: colors.textMuted }]}>
-                kcal
-              </Text>
-            </Text>
-          </Card>
-        </View>
-
-        {/* Action Controls */}
+        {/* Bottom Thumb-Zone Action Controls (>= 56dp height) */}
         <View style={styles.controls}>
           {status === 'IDLE' ? (
             <Button
               title={`Bắt đầu ${activeMeta.label}`}
               onPress={startWorkout}
-              style={{ backgroundColor: activeMeta.color }}
+              style={styles.thumbControlBtn}
             />
           ) : (
             <View style={[styles.activeControls, { gap: spacing.sm }]}>
@@ -507,23 +436,26 @@ export const ExerciseTrackingScreen: React.FC<ExerciseTrackingScreenProps> = ({
                 title={status === 'ACTIVE' ? 'Tạm dừng' : 'Tiếp tục'}
                 variant={status === 'ACTIVE' ? 'secondary' : 'primary'}
                 onPress={status === 'ACTIVE' ? pauseWorkout : resumeWorkout}
-                style={styles.controlHalf}
+                style={[styles.controlHalf, styles.thumbControlBtn]}
               />
 
               {/* Hold-for-2s Finish Button with single-tap confirmation */}
-              <TouchableOpacity
-                activeOpacity={0.9}
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Giữ 2 giây để kết thúc buổi tập"
                 onPress={handleFinishPress}
                 onPressIn={startHoldFinish}
                 onPressOut={cancelHoldFinish}
                 disabled={isSyncing}
+                onLayout={e => setHoldWidth(e.nativeEvent.layout.width)}
                 style={[
                   styles.holdFinishBtn,
                   styles.controlHalf,
                   {
-                    backgroundColor: colors.danger + '33',
+                    backgroundColor: colors.danger,
                     borderColor: colors.danger,
                     borderRadius: radius.md,
+                    opacity: isSyncing ? 0.5 : 1,
                   },
                 ]}
               >
@@ -531,19 +463,25 @@ export const ExerciseTrackingScreen: React.FC<ExerciseTrackingScreenProps> = ({
                   style={[
                     styles.holdProgressFill,
                     {
-                      width: holdWidthInterpolated,
-                      backgroundColor: colors.danger,
+                      backgroundColor: colors.primaryPressed,
+                      transform: [
+                        { translateX: holdTranslateX },
+                        { scaleX: holdAnim },
+                      ],
                     },
                   ]}
                 />
-                <Text style={[typography.label, styles.holdFinishText]}>
-                  {isSyncing
-                    ? 'Đang lưu...'
-                    : holdingFinish
-                    ? 'Giữ 2s để kết thúc...'
-                    : 'Giữ kết thúc ⏹'}
-                </Text>
-              </TouchableOpacity>
+                <View style={[styles.holdFinishContent, { gap: spacing.xs }]}>
+                  <Square size={14} color={colors.onDanger} fill={colors.onDanger} />
+                  <Text style={[typography.label, { color: colors.onDanger }]}>
+                    {isSyncing
+                      ? 'Đang lưu...'
+                      : holdingFinish
+                      ? 'Giữ 2s để kết thúc...'
+                      : 'Giữ kết thúc'}
+                  </Text>
+                </View>
+              </Pressable>
             </View>
           )}
         </View>
@@ -557,9 +495,21 @@ export const ExerciseTrackingScreen: React.FC<ExerciseTrackingScreenProps> = ({
       >
         <View style={styles.modalOverlay}>
           <Card style={[styles.modalCard, { padding: spacing.lg }]}>
-            {finishedSummary && (
+            {finishedSummary ? (
               <>
-                <Text style={styles.modalIcon}>🏆</Text>
+                <View
+                  style={[
+                    styles.modalIconBadge,
+                    {
+                      backgroundColor: colors.primaryMuted,
+                      borderRadius: radius.pill,
+                      padding: spacing.md,
+                      marginBottom: spacing.sm,
+                    },
+                  ]}
+                >
+                  <Trophy size={32} color={colors.primary} strokeWidth={2} />
+                </View>
                 <Text
                   style={[
                     typography.title,
@@ -568,20 +518,33 @@ export const ExerciseTrackingScreen: React.FC<ExerciseTrackingScreenProps> = ({
                 >
                   Hoàn thành buổi tập!
                 </Text>
-                <Text
+                <View
                   style={[
-                    typography.caption,
-                    {
-                      color: colors.primary,
-                      marginBottom: spacing.md,
-                      textAlign: 'center',
-                    },
+                    styles.syncBadgeRow,
+                    { gap: spacing.xs, marginBottom: spacing.md },
                   ]}
                 >
-                  {finishedSummary.syncedToServer
-                    ? '✅ Đã lưu và đồng bộ lên server thành công'
-                    : '💾 Đã lưu cục bộ. Sẽ đồng bộ khi có kết nối mạng'}
-                </Text>
+                  {finishedSummary.syncedToServer ? (
+                    <CheckCircle2 size={14} color={colors.success} strokeWidth={2} />
+                  ) : (
+                    <HardDrive size={14} color={colors.warning} strokeWidth={2} />
+                  )}
+                  <Text
+                    style={[
+                      typography.caption,
+                      {
+                        color: finishedSummary.syncedToServer
+                          ? colors.success
+                          : colors.warning,
+                        textAlign: 'center',
+                      },
+                    ]}
+                  >
+                    {finishedSummary.syncedToServer
+                      ? 'Đã lưu và đồng bộ lên server thành công'
+                      : 'Đã lưu cục bộ. Sẽ đồng bộ khi có kết nối mạng'}
+                  </Text>
+                </View>
 
                 <View
                   style={[
@@ -602,6 +565,7 @@ export const ExerciseTrackingScreen: React.FC<ExerciseTrackingScreenProps> = ({
                     <Text
                       style={[
                         typography.body,
+                        tabularNums,
                         { color: colors.text, fontWeight: '700' },
                       ]}
                     >
@@ -620,6 +584,7 @@ export const ExerciseTrackingScreen: React.FC<ExerciseTrackingScreenProps> = ({
                     <Text
                       style={[
                         typography.body,
+                        tabularNums,
                         { color: colors.text, fontWeight: '700' },
                       ]}
                     >
@@ -637,6 +602,7 @@ export const ExerciseTrackingScreen: React.FC<ExerciseTrackingScreenProps> = ({
                     <Text
                       style={[
                         typography.body,
+                        tabularNums,
                         { color: colors.text, fontWeight: '700' },
                       ]}
                     >
@@ -655,6 +621,7 @@ export const ExerciseTrackingScreen: React.FC<ExerciseTrackingScreenProps> = ({
                     <Text
                       style={[
                         typography.body,
+                        tabularNums,
                         { color: colors.text, fontWeight: '700' },
                       ]}
                     >
@@ -679,7 +646,7 @@ export const ExerciseTrackingScreen: React.FC<ExerciseTrackingScreenProps> = ({
                   style={{ width: '100%', marginTop: spacing.sm }}
                 />
               </>
-            )}
+            ) : null}
           </Card>
         </View>
       </Modal>
@@ -708,7 +675,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingVertical: 8,
+    minHeight: 40,
     borderRadius: 20,
     borderWidth: 1,
   },
@@ -719,14 +687,15 @@ const styles = StyleSheet.create({
     marginRight: 6,
   },
   historyBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingVertical: 8,
+    minHeight: 44,
     borderRadius: 20,
     borderWidth: 1,
   },
   panel: {
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
     borderTopWidth: 1,
   },
   typeRow: {
@@ -734,6 +703,7 @@ const styles = StyleSheet.create({
   },
   typePill: {
     flex: 1,
+    minHeight: 44,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -744,25 +714,6 @@ const styles = StyleSheet.create({
   typeIcon: {
     fontSize: 16,
   },
-  timerContainer: {
-    alignItems: 'center',
-  },
-  timerValue: {
-    fontSize: 38,
-    fontWeight: '700',
-    fontVariant: ['tabular-nums'],
-  },
-  metricsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
-  metricCard: {
-    width: '48.5%',
-  },
-  unit: {
-    fontSize: 13,
-    fontWeight: '400',
-  },
   controls: {
     marginTop: 4,
   },
@@ -772,8 +723,11 @@ const styles = StyleSheet.create({
   controlHalf: {
     flex: 1,
   },
+  thumbControlBtn: {
+    minHeight: 56,
+  },
   holdFinishBtn: {
-    height: 48,
+    minHeight: 56,
     borderWidth: 1.5,
     justifyContent: 'center',
     alignItems: 'center',
@@ -783,11 +737,13 @@ const styles = StyleSheet.create({
   holdProgressFill: {
     position: 'absolute',
     left: 0,
+    right: 0,
     top: 0,
     bottom: 0,
   },
-  holdFinishText: {
-    color: '#FFFFFF',
+  holdFinishContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
     zIndex: 1,
   },
   modalOverlay: {
@@ -799,9 +755,14 @@ const styles = StyleSheet.create({
   modalCard: {
     alignItems: 'center',
   },
-  modalIcon: {
-    fontSize: 48,
-    marginBottom: 4,
+  modalIconBadge: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  syncBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   summaryRows: {
     width: '100%',
@@ -823,14 +784,6 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     alignItems: 'center',
     justifyContent: 'center',
-    elevation: 6,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
     zIndex: 10,
-  },
-  myLocationIcon: {
-    fontSize: 22,
   },
 });

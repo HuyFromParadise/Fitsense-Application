@@ -3,7 +3,8 @@ import { getAuth, signInWithEmailAndPassword } from '@react-native-firebase/auth
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import React, { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { Alert, ScrollView, Text } from 'react-native';
+import { Alert, KeyboardAvoidingView, Platform, ScrollView, Text } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { z } from 'zod';
 
 import { useTheme } from '../../../app/providers/ThemeProvider';
@@ -69,71 +70,78 @@ export function LoginScreen({ navigation }: Props) {
   };
 
   return (
-    <ScrollView
-      contentContainerStyle={{
-        flexGrow: 1,
-        justifyContent: 'center',
-        padding: spacing.lg,
-        gap: spacing.lg,
-      }}>
-      <Text style={[typography.title, { color: colors.text }]}>FitSense</Text>
-      <Text style={[typography.body, { color: colors.textMuted }]}>
-        Đăng nhập để bắt đầu theo dõi hoạt động.
-      </Text>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <ScrollView
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={{
+            flexGrow: 1,
+            justifyContent: 'center',
+            padding: spacing.lg,
+            gap: spacing.lg,
+          }}>
+          <Text style={[typography.title, { color: colors.text }]}>FitSense</Text>
+          <Text style={[typography.body, { color: colors.textMuted }]}>
+            Đăng nhập để bắt đầu theo dõi hoạt động.
+          </Text>
 
-      <Card style={{ gap: spacing.md }}>
-        <Controller
-          control={control}
-          name="email"
-          render={({ field: { onChange, value } }) => (
-            <Input
-              label="Email"
-              placeholder="you@example.com"
-              autoCapitalize="none"
-              autoComplete="email"
-              keyboardType="email-address"
-              value={value}
-              onChangeText={onChange}
-              error={errors.email?.message}
+          <Card style={{ gap: spacing.md }}>
+            <Controller
+              control={control}
+              name="email"
+              render={({ field: { onChange, value } }) => (
+                <Input
+                  label="Email"
+                  placeholder="you@example.com"
+                  autoCapitalize="none"
+                  autoComplete="email"
+                  keyboardType="email-address"
+                  value={value}
+                  onChangeText={onChange}
+                  error={errors.email?.message}
+                />
+              )}
             />
-          )}
-        />
-        <Controller
-          control={control}
-          name="password"
-          render={({ field: { onChange, value } }) => (
-            <Input
-              label="Mật khẩu"
-              placeholder="••••••"
-              secureTextEntry
-              autoComplete="password"
-              value={value}
-              onChangeText={onChange}
-              error={errors.password?.message}
+            <Controller
+              control={control}
+              name="password"
+              render={({ field: { onChange, value } }) => (
+                <Input
+                  label="Mật khẩu"
+                  placeholder="••••••"
+                  secureTextEntry
+                  autoComplete="password"
+                  value={value}
+                  onChangeText={onChange}
+                  error={errors.password?.message}
+                />
+              )}
             />
-          )}
-        />
-        <Button title="Đăng nhập" onPress={handleLogin} loading={loading} />
-        <Button
-          title="Đăng nhập với Google"
-          variant="secondary"
-          onPress={handleGoogleLogin}
-          loading={googleLoading}
-          disabled={loading}
-        />
-        <Button
-          title="Quên mật khẩu"
-          variant="ghost"
-          disabled={loading || googleLoading}
-          onPress={() => navigation.navigate('ResetPassword')}
-        />
-        <Button
-          title="Tạo tài khoản"
-          variant="secondary"
-          disabled={loading || googleLoading}
-          onPress={() => navigation.navigate('Register')}
-        />
-      </Card>
-    </ScrollView>
+            <Button title="Đăng nhập" onPress={handleLogin} loading={loading} />
+            <Button
+              title="Đăng nhập với Google"
+              variant="secondary"
+              onPress={handleGoogleLogin}
+              loading={googleLoading}
+              disabled={loading}
+            />
+            <Button
+              title="Quên mật khẩu"
+              variant="ghost"
+              disabled={loading || googleLoading}
+              onPress={() => navigation.navigate('ResetPassword')}
+            />
+            <Button
+              title="Tạo tài khoản"
+              variant="secondary"
+              disabled={loading || googleLoading}
+              onPress={() => navigation.navigate('Register')}
+            />
+          </Card>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }

@@ -1,35 +1,44 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import React, { useEffect, useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { FlashList } from '@shopify/flash-list';
+import React, { memo, useCallback, useEffect, useState } from 'react';
+import { Controller, useForm } from 'react-hook-form';
 import {
   Alert,
+  KeyboardAvoidingView,
   LayoutAnimation,
   Platform,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   UIManager,
   View,
 } from 'react-native';
-
-if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { z } from 'zod';
 
 import { useTheme } from '../../../app/providers/ThemeProvider';
-import { Button, Card, EmptyState, ErrorState, Input, Loading } from '../../../components/common';
+import {
+  Button,
+  Card,
+  EmptyState,
+  ErrorState,
+  Input,
+  SkeletonLoader,
+} from '../../../components/common';
 import { useTodayActivity } from '../../../stores/useTodayActivity';
+import { tabularNums } from '../../../theme';
 import { todayIsoDate } from '../../../utils/date';
 import {
   formatGoalProgress,
   GOAL_TYPE_LABEL,
   goalProgress,
 } from '../goalProgress';
-import { useGoals, useWeeklyExerciseTotals } from '../useGoals';
 import type { Goal, GoalType, GoalUpsertRequest } from '../types';
+import { useGoals, useWeeklyExerciseTotals } from '../useGoals';
+
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
 const GOAL_TYPES = [
   'DAILY_STEPS',
@@ -40,7 +49,6 @@ const GOAL_TYPES = [
 ] as const;
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
-const BAR_RADIUS = 999;
 
 const formSchema = z
   .object({
@@ -62,7 +70,7 @@ function isWeekly(type: GoalType) {
   return type === 'WEEKLY_EXERCISE_DURATION' || type === 'WEEKLY_EXERCISE_COUNT';
 }
 
-function GoalForm({
+const GoalForm = memo(function GoalForm({
   goal,
   submitting,
   error,
@@ -77,7 +85,7 @@ function GoalForm({
 }) {
   const { colors, spacing, radius, typography } = useTheme();
   const {
-    register,
+    control,
     handleSubmit,
     setValue,
     watch,
@@ -111,42 +119,87 @@ function GoalForm({
       </Text>
 
       <View style={styles.chips}>
-        {GOAL_TYPES.map(option => (
-          <Pressable
-            key={option}
-            onPress={() => setValue('type', option, { shouldValidate: true })}
-            style={[
-              styles.chip,
-              {
-                borderColor: type === option ? colors.primary : colors.border,
-                borderRadius: radius.md,
-                backgroundColor: type === option ? colors.surfaceAlt : colors.surface,
-              },
-            ]}>
-            <Text style={[typography.caption, { color: type === option ? colors.primary : colors.textMuted, fontWeight: type === option ? '700' : '400' }]}>
-              {GOAL_TYPE_LABEL[option]}
-            </Text>
-          </Pressable>
-        ))}
+        {GOAL_TYPES.map(option => {
+          const isSelected = type === option;
+          return (
+            <Pressable
+              key={option}
+              accessibilityRole="button"
+              accessibilityState={{ selected: isSelected }}
+              onPress={() => setValue('type', option, { shouldValidate: true })}
+              style={({ pressed }) => [
+                styles.chip,
+                {
+                  borderColor: isSelected ? colors.primary : colors.border,
+                  borderRadius: radius.md,
+                  backgroundColor: isSelected ? colors.primaryMuted : colors.surface,
+                  opacity: pressed ? 0.85 : 1,
+                },
+              ]}>
+              <Text
+                style={[
+                  typography.caption,
+                  {
+                    color: isSelected ? colors.primary : colors.textMuted,
+                    fontWeight: isSelected ? '700' : '400',
+                  },
+                ]}>
+                {GOAL_TYPE_LABEL[option]}
+              </Text>
+            </Pressable>
+          );
+        })}
       </View>
 
-      <Input
-        label={type === 'DAILY_DISTANCE' ? 'Mục tiêu (mét)' : type === 'WEEKLY_EXERCISE_DURATION' ? 'Mục tiêu (phút)' : 'Mục tiêu'}
-        keyboardType="numeric"
-        error={errors.targetValue?.message}
-        {...register('targetValue')}
+      <Controller
+        control={control}
+        name="targetValue"
+        render={({ field: { onChange, onBlur, value } }) => (
+          <Input
+            label={
+              type === 'DAILY_DISTANCE'
+                ? 'Mục tiêu (mét)'
+                : type === 'WEEKLY_EXERCISE_DURATION'
+                  ? 'Mục tiêu (phút)'
+                  : 'Mục tiêu'
+            }
+            keyboardType="numeric"
+            value={value}
+            onChangeText={onChange}
+            onBlur={onBlur}
+            error={errors.targetValue?.message}
+          />
+        )}
       />
-      <Input
-        label="Bắt đầu (yyyy-MM-dd)"
-        autoCapitalize="none"
-        error={errors.startsOn?.message}
-        {...register('startsOn')}
+
+      <Controller
+        control={control}
+        name="startsOn"
+        render={({ field: { onChange, onBlur, value } }) => (
+          <Input
+            label="Bắt đầu (yyyy-MM-dd)"
+            autoCapitalize="none"
+            value={value}
+            onChangeText={onChange}
+            onBlur={onBlur}
+            error={errors.startsOn?.message}
+          />
+        )}
       />
-      <Input
-        label="Kết thúc (để trống nếu không có)"
-        autoCapitalize="none"
-        error={errors.endsOn?.message}
-        {...register('endsOn')}
+
+      <Controller
+        control={control}
+        name="endsOn"
+        render={({ field: { onChange, onBlur, value } }) => (
+          <Input
+            label="Kết thúc (để trống nếu không có)"
+            autoCapitalize="none"
+            value={value}
+            onChangeText={onChange}
+            onBlur={onBlur}
+            error={errors.endsOn?.message}
+          />
+        )}
       />
 
       {error ? <Text style={[typography.caption, { color: colors.danger }]}>{error}</Text> : null}
@@ -169,7 +222,63 @@ function GoalForm({
       </View>
     </Card>
   );
-}
+});
+
+const GoalRowItem = memo(function GoalRowItem({
+  goal,
+  progress,
+  progressLabel,
+  onEdit,
+  onDelete,
+}: {
+  goal: Goal;
+  progress: number;
+  progressLabel: string;
+  onEdit: (goal: Goal) => void;
+  onDelete: (goal: Goal) => void;
+}) {
+  const { colors, radius, spacing, typography } = useTheme();
+
+  return (
+    <Card style={{ gap: spacing.sm, marginBottom: spacing.md }}>
+      <Text style={[typography.label, { color: colors.text }]}>
+        {GOAL_TYPE_LABEL[goal.type]}
+      </Text>
+      <View
+        style={[
+          styles.track,
+          { backgroundColor: colors.surfaceAlt, borderRadius: radius.pill },
+        ]}>
+        <View
+          style={[
+            styles.fill,
+            {
+              backgroundColor: progress >= 1 ? colors.success : colors.primary,
+              borderRadius: radius.pill,
+              width: `${Math.min(100, Math.round(progress * 100))}%`,
+            },
+          ]}
+        />
+      </View>
+      <Text style={[typography.caption, tabularNums, { color: colors.textMuted }]}>
+        {progressLabel}
+      </Text>
+      {goal.endsOn ? (
+        <Text style={[typography.caption, tabularNums, { color: colors.textMuted }]}>
+          Đến {goal.endsOn}
+        </Text>
+      ) : null}
+      <View style={[styles.row, { gap: spacing.sm }]}>
+        <Button
+          title="Sửa"
+          variant="secondary"
+          onPress={() => onEdit(goal)}
+        />
+        <Button title="Xóa" variant="danger" onPress={() => onDelete(goal)} />
+      </View>
+    </Card>
+  );
+});
 
 export function GoalsScreen() {
   const { colors, spacing, typography } = useTheme();
@@ -190,22 +299,43 @@ export function GoalsScreen() {
     refreshDaily().catch(() => {});
   }, [refreshDaily]);
 
-  const closeForm = () => {
+  const closeForm = useCallback(() => {
     setShowForm(false);
     setEditing(null);
-  };
+  }, []);
 
-  const confirmDelete = (goal: Goal) => {
-    Alert.alert('Xóa mục tiêu', `Xóa "${GOAL_TYPE_LABEL[goal.type]}"?`, [
-      { text: 'Hủy', style: 'cancel' },
-      { text: 'Xóa', style: 'destructive', onPress: () => remove.mutate(goal.id) },
-    ]);
-  };
+  const handleEdit = useCallback((goal: Goal) => {
+    setEditing(goal);
+    setShowForm(true);
+  }, []);
 
-  return (
-    <ScrollView
-      contentContainerStyle={{ padding: spacing.lg, paddingTop: insets.top + spacing.lg, gap: spacing.lg }}
-      style={{ backgroundColor: colors.background }}>
+  const confirmDelete = useCallback(
+    (goal: Goal) => {
+      Alert.alert('Xóa mục tiêu', `Xóa "${GOAL_TYPE_LABEL[goal.type]}"?`, [
+        { text: 'Hủy', style: 'cancel' },
+        { text: 'Xóa', style: 'destructive', onPress: () => remove.mutate(goal.id) },
+      ]);
+    },
+    [remove],
+  );
+
+  const keyExtractor = useCallback((item: Goal) => String(item.id), []);
+
+  const renderItem = useCallback(
+    ({ item }: { item: Goal }) => (
+      <GoalRowItem
+        goal={item}
+        progress={goalProgress(item, daily, weekly)}
+        progressLabel={formatGoalProgress(item, daily, weekly)}
+        onEdit={handleEdit}
+        onDelete={confirmDelete}
+      />
+    ),
+    [daily, weekly, handleEdit, confirmDelete],
+  );
+
+  const listHeader = (
+    <View style={{ gap: spacing.lg, marginBottom: spacing.lg }}>
       <View style={styles.header}>
         <Text style={[typography.heading, { color: colors.text }]}>Mục tiêu</Text>
         {!showForm ? (
@@ -236,79 +366,76 @@ export function GoalsScreen() {
         />
       ) : null}
 
-      {list.isLoading ? <Loading message="Đang tải mục tiêu…" /> : null}
+      {list.isLoading ? (
+        <View style={{ gap: spacing.md }}>
+          <Card style={{ gap: spacing.sm }}>
+            <SkeletonLoader width="45%" height={16} />
+            <SkeletonLoader width="100%" height={10} />
+            <SkeletonLoader width="60%" height={14} />
+          </Card>
+          <Card style={{ gap: spacing.sm }}>
+            <SkeletonLoader width="50%" height={16} />
+            <SkeletonLoader width="100%" height={10} />
+            <SkeletonLoader width="55%" height={14} />
+          </Card>
+        </View>
+      ) : null}
 
       {list.isError ? (
         <ErrorState message={list.error.message} onRetry={() => list.refetch()} />
       ) : null}
+    </View>
+  );
 
-      {!list.isLoading && !list.isError && goals.length === 0 ? (
-        <Card>
-          <EmptyState
-            title="Chưa có mục tiêu"
-            message="Thêm mục tiêu bước chân, quãng đường hoặc số buổi tập để theo dõi tiến độ."
-          />
-        </Card>
-      ) : null}
+  const listEmpty =
+    !list.isLoading && !list.isError ? (
+      <Card>
+        <EmptyState
+          title="Chưa có mục tiêu"
+          message="Thêm mục tiêu bước chân, quãng đường hoặc số buổi tập để theo dõi tiến độ."
+        />
+      </Card>
+    ) : null;
 
-      {goals.map(goal => {
-        const progress = goalProgress(goal, daily, weekly);
-        return (
-          <Card key={goal.id} style={{ gap: spacing.sm }}>
-            <Text style={[typography.label, { color: colors.text }]}>
-              {GOAL_TYPE_LABEL[goal.type]}
-            </Text>
-            <View
-              style={[styles.track, { backgroundColor: colors.surfaceAlt, borderRadius: BAR_RADIUS }]}>
-              <View
-                style={[
-                  styles.fill,
-                  {
-                    backgroundColor: progress >= 1 ? colors.success : colors.primary,
-                    borderRadius: BAR_RADIUS,
-                    width: `${Math.round(progress * 100)}%`,
-                  },
-                ]}
-              />
-            </View>
-            <Text style={[typography.caption, { color: colors.textMuted }]}>
-              {formatGoalProgress(goal, daily, weekly)}
-            </Text>
-            {goal.endsOn ? (
-              <Text style={[typography.caption, { color: colors.textMuted }]}>
-                Đến {goal.endsOn}
-              </Text>
-            ) : null}
-            <View style={[styles.row, { gap: spacing.sm }]}>
-              <Button
-                title="Sửa"
-                variant="secondary"
-                onPress={() => {
-                  setEditing(goal);
-                  setShowForm(true);
-                }}
-              />
-              <Button title="Xóa" variant="danger" onPress={() => confirmDelete(goal)} />
-            </View>
-          </Card>
-        );
-      })}
+  const listFooter = remove.isError ? (
+    <Text style={[typography.caption, { color: colors.danger }]}>
+      {remove.error.message}
+    </Text>
+  ) : null;
 
-      {remove.isError ? (
-        <Text style={[typography.caption, { color: colors.danger }]}>{remove.error.message}</Text>
-      ) : null}
-    </ScrollView>
+  return (
+    <SafeAreaView
+      edges={['top']}
+      style={[styles.container, { backgroundColor: colors.background }]}>
+      <KeyboardAvoidingView
+        style={styles.container}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <FlashList
+          data={list.isLoading || list.isError ? [] : goals}
+          keyExtractor={keyExtractor}
+          renderItem={renderItem}
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={{
+            padding: spacing.lg,
+            paddingBottom: Math.max(insets.bottom, spacing.lg),
+          }}
+          ListHeaderComponent={listHeader}
+          ListEmptyComponent={listEmpty}
+          ListFooterComponent={listFooter}
+        />
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
   header: {
     alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'space-between',
-  },
-  row: {
-    flexDirection: 'row',
   },
   chips: {
     flexDirection: 'row',
@@ -316,12 +443,17 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   chip: {
+    minHeight: 44,
+    justifyContent: 'center',
     borderWidth: 1,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  row: {
+    flexDirection: 'row',
   },
   track: {
-    height: 8,
+    height: 10,
     overflow: 'hidden',
   },
   fill: {
