@@ -45,6 +45,8 @@ export const useExerciseTracking = () => {
   } | null>(null);
 
   const recoveryCheckedRef = useRef(false);
+  const lastPointAtRef = useRef<number>(0);
+  const lastPointRef = useRef<NativeExercisePoint | null>(null);
 
   const uploadSessionToServer = useCallback(
     async (
@@ -209,10 +211,22 @@ export const useExerciseTracking = () => {
   useEffect(() => {
     const unsubscribe = exerciseNative.subscribe((event) => {
       if (event.state === 'POINT_RECORDED') {
+        const now = Date.now();
+        lastPointAtRef.current = now;
         setDistanceM(event.distanceM);
-        if (event.point.speedMps !== null) {
-          setCurrentSpeedMps(event.point.speedMps);
+
+        let nextSpeed = event.point.speedMps;
+        if (nextSpeed === null && lastPointRef.current) {
+          const prev = lastPointRef.current;
+          const dtSec = Math.max(0.5, (event.point.recordedAtMs - prev.recordedAtMs) / 1000);
+          const distDelta = Math.max(0, event.distanceM - distanceMRef.current);
+          nextSpeed = distDelta / dtSec;
         }
+        lastPointRef.current = event.point;
+        if (nextSpeed !== null && Number.isFinite(nextSpeed) && nextSpeed >= 0) {
+          setCurrentSpeedMps(nextSpeed);
+        }
+
         setRawPoints((prev) => [...prev, event.point]);
         setRouteCoords((prev) => [
           ...prev,
@@ -226,18 +240,28 @@ export const useExerciseTracking = () => {
         setStatus(event.session.status);
         setPausedTotalMs(event.session.pausedTotalMs);
         setDistanceM(event.session.distanceM);
+        if (event.state === 'PAUSED') {
+          setCurrentSpeedMps(0);
+        }
       }
     });
     return unsubscribe;
   }, []);
 
-  // Timer tick (excludes paused duration)
+  const distanceMRef = useRef(distanceM);
+  distanceMRef.current = distanceM;
+
+  // Timer tick (excludes paused duration) + reset speed to 0 when stationary > 5s
   useEffect(() => {
     if (status !== 'ACTIVE' || !startedAtMs) return;
 
     const timer = setInterval(() => {
-      const activeMs = Math.max(0, Date.now() - startedAtMs - pausedTotalMs);
+      const now = Date.now();
+      const activeMs = Math.max(0, now - startedAtMs - pausedTotalMs);
       setElapsedSeconds(Math.floor(activeMs / 1000));
+      if (lastPointAtRef.current > 0 && now - lastPointAtRef.current > 5000) {
+        setCurrentSpeedMps(0);
+      }
     }, 1000);
 
     return () => clearInterval(timer);
@@ -255,15 +279,32 @@ export const useExerciseTracking = () => {
 
     try {
       const session = await exerciseNative.start(selectedType);
+      const initialPausedMs = session.pausedTotalMs ?? 0;
+      const initialDistM = session.distanceM ?? 0;
+      const initialElapsedSec = Math.max(
+        0,
+        Math.floor((Date.now() - session.startedAtMs - initialPausedMs) / 1000),
+      );
+      lastPointAtRef.current = 0;
+      lastPointRef.current = null;
       setSessionId(session.sessionId);
       setStartedAtMs(session.startedAtMs);
-      setPausedTotalMs(0);
+      setPausedTotalMs(initialPausedMs);
       setPauseStartMs(null);
-      setElapsedSeconds(0);
-      setDistanceM(0);
+      setElapsedSeconds(initialElapsedSec);
+      setDistanceM(initialDistM);
       setCurrentSpeedMps(0);
-      setRouteCoords([]);
-      setRawPoints([]);
+      if (session.pointCount > 0) {
+        const existingPoints = await exerciseNative.getLocalExercisePoints(session.sessionId);
+        setRawPoints(existingPoints);
+        setRouteCoords(
+          existingPoints.map(p => ({ latitude: p.latitude, longitude: p.longitude })),
+        );
+        lastPointRef.current = existingPoints[existingPoints.length - 1] ?? null;
+      } else {
+        setRouteCoords([]);
+        setRawPoints([]);
+      }
       setFinishedSummary(null);
       setStatus('ACTIVE');
     } catch (err: any) {
@@ -374,7 +415,7 @@ export const useExerciseTracking = () => {
 
   const calories = calculateCalories(selectedType, elapsedSeconds, weightKg);
   const avgPaceSecPerKm =
-    distanceM > 10 ? elapsedSeconds / (distanceM / 1000) : null;
+    distanceM >= 20 && elapsedSeconds > 0 ? elapsedSeconds / (distanceM / 1000) : null;
 
   return {
     selectedType,

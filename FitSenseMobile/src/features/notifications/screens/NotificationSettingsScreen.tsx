@@ -1,18 +1,49 @@
-import React, { useState, useEffect } from 'react';
+import { BellRing, ChevronLeft } from 'lucide-react-native';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  Switch,
   Alert,
-  TouchableOpacity,
+  Linking,
+  PermissionsAndroid,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../../app/providers/ThemeProvider';
-import { Card, Button, Loading } from '../../../components/common';
-import { notificationApi, NotificationSettings } from '../notificationApi';
+import { Button, Card, Loading } from '../../../components/common';
 import { Notification } from '../../../services/native';
+import { notificationApi, NotificationSettings } from '../notificationApi';
+
+type NotificationPermissionState = 'GRANTED' | 'DENIED' | 'PERMANENTLY_DENIED';
+
+async function requestPostNotificationsPermission(): Promise<NotificationPermissionState> {
+  const ready = await Notification.ensureReady();
+  if (ready === 'GRANTED') {
+    return 'GRANTED';
+  }
+  if (
+    Platform.OS === 'android' &&
+    Number(Platform.Version) >= 33 &&
+    PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS
+  ) {
+    const result = await PermissionsAndroid.request(
+      PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS,
+    );
+    if (result === PermissionsAndroid.RESULTS.GRANTED) {
+      await Notification.ensureReady();
+      return 'GRANTED';
+    }
+    if (result === PermissionsAndroid.RESULTS.NEVER_ASK_AGAIN) {
+      return 'PERMANENTLY_DENIED';
+    }
+    return 'DENIED';
+  }
+  return 'DENIED';
+}
 
 interface NotificationSettingsScreenProps {
   onBack?: () => void;
@@ -25,12 +56,13 @@ interface LocalReminderSettings {
 }
 
 export function NotificationSettingsScreen({ onBack }: NotificationSettingsScreenProps) {
-  const { colors, spacing, typography } = useTheme();
+  const { colors, radius, spacing, typography } = useTheme();
   const insets = useSafeAreaInsets();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
+  const [permissionState, setPermissionState] = useState<NotificationPermissionState>('GRANTED');
   const [settings, setSettings] = useState<NotificationSettings>({
     weeklyReportEnabled: true,
     workoutRemindersEnabled: true,
@@ -66,7 +98,8 @@ export function NotificationSettingsScreen({ onBack }: NotificationSettingsScree
   const loadLocalSettings = async () => {
     try {
       setLocalLoading(true);
-      await Notification.ensureReady();
+      const status = await Notification.ensureReady();
+      setPermissionState(status === 'GRANTED' ? 'GRANTED' : 'DENIED');
       const config = await Notification.getDailyReminderConfig?.();
       if (config) {
         setLocalSettings({
@@ -82,6 +115,12 @@ export function NotificationSettingsScreen({ onBack }: NotificationSettingsScree
       setLocalLoading(false);
     }
   };
+
+  const handleRequestPermission = useCallback(async () => {
+    const next = await requestPostNotificationsPermission();
+    setPermissionState(next);
+    return next;
+  }, []);
 
   const handleToggle = async (key: keyof NotificationSettings, value: boolean) => {
     const updated = { ...settings, [key]: value };
@@ -101,12 +140,8 @@ export function NotificationSettingsScreen({ onBack }: NotificationSettingsScree
     setLocalSettings(prev => ({ ...prev, enabled }));
     try {
       if (enabled) {
-        const status = await Notification.ensureReady();
+        const status = await handleRequestPermission();
         if (status !== 'GRANTED') {
-          Alert.alert(
-            'Quyền thông báo',
-            'Ứng dụng cần quyền gửi thông báo để hoạt động nhắc nhở. Vui lòng bật trong Cài đặt thiết bị.',
-          );
           setLocalSettings(prev => ({ ...prev, enabled: false }));
           return;
         }
@@ -147,6 +182,10 @@ export function NotificationSettingsScreen({ onBack }: NotificationSettingsScree
   const handleSendTestNotification = async () => {
     try {
       setTesting(true);
+      const status = await handleRequestPermission();
+      if (status !== 'GRANTED') {
+        return;
+      }
       await notificationApi.registerDevice();
       const res = await notificationApi.sendTestNotification();
       const count = res?.dispatchedCount ?? 0;
@@ -163,9 +202,8 @@ export function NotificationSettingsScreen({ onBack }: NotificationSettingsScree
 
   const handleTestLocalNotification = async () => {
     try {
-      const status = await Notification.ensureReady();
+      const status = await handleRequestPermission();
       if (status !== 'GRANTED') {
-        Alert.alert('Quyền thông báo', 'Cần quyền POST_NOTIFICATIONS để hiển thị thông báo thử nghiệm.');
         return;
       }
       await Notification.show({
@@ -189,14 +227,20 @@ export function NotificationSettingsScreen({ onBack }: NotificationSettingsScree
       style={[styles.container, { backgroundColor: colors.background }]}
       contentContainerStyle={[styles.content, { padding: spacing.md, paddingTop: insets.top + spacing.md }]}
     >
-      {onBack && (
-        <TouchableOpacity
+      {onBack ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Quay lại trang cá nhân"
           onPress={onBack}
-          style={[styles.backButton, { marginBottom: spacing.sm }]}
+          style={({ pressed }) => [
+            styles.backButton,
+            { marginBottom: spacing.sm, opacity: pressed ? 0.7 : 1, gap: spacing.xs },
+          ]}
         >
-          <Text style={[styles.backText, { color: colors.primary }]}>← Quay lại trang cá nhân</Text>
-        </TouchableOpacity>
-      )}
+          <ChevronLeft size={18} color={colors.primary} strokeWidth={2.2} />
+          <Text style={[styles.backText, { color: colors.primary }]}>Quay lại trang cá nhân</Text>
+        </Pressable>
+      ) : null}
 
       <Text style={[styles.headerTitle, { color: colors.text, ...typography.title }]}>
         Cài đặt thông báo
@@ -204,6 +248,43 @@ export function NotificationSettingsScreen({ onBack }: NotificationSettingsScree
       <Text style={[styles.headerSubtitle, { color: colors.textMuted, marginBottom: spacing.md, ...typography.body }]}>
         Tùy chỉnh thông báo đẩy (FCM) và nhắc nhở cục bộ (WorkManager) hoạt động thể chất.
       </Text>
+
+      {permissionState !== 'GRANTED' ? (
+        <Card style={[styles.card, { marginBottom: spacing.md, gap: spacing.sm }]}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+            <View
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: radius.md,
+                backgroundColor: colors.primaryMuted,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}>
+              <BellRing size={20} color={colors.primary} strokeWidth={2} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[typography.label, { color: colors.text }]}>
+                Chưa cấp quyền thông báo
+              </Text>
+              <Text style={[typography.caption, { color: colors.textMuted }]}>
+                Bật quyền POST_NOTIFICATIONS để nhận nhắc nhở tập luyện và báo cáo tuần.
+              </Text>
+            </View>
+          </View>
+          <Button
+            title={permissionState === 'PERMANENTLY_DENIED' ? 'Mở Cài đặt thiết bị' : 'Cấp quyền thông báo'}
+            variant="primary"
+            onPress={() => {
+              if (permissionState === 'PERMANENTLY_DENIED') {
+                Linking.openSettings().catch(() => {});
+              } else {
+                handleRequestPermission().catch(() => {});
+              }
+            }}
+          />
+        </Card>
+      ) : null}
 
       {/* === FCM Notifications (Server) === */}
       <Card style={[styles.card, { marginBottom: spacing.md }]}>
@@ -224,7 +305,7 @@ export function NotificationSettingsScreen({ onBack }: NotificationSettingsScree
             value={settings.weeklyReportEnabled}
             onValueChange={v => handleToggle('weeklyReportEnabled', v)}
             trackColor={{ false: colors.border, true: colors.primary }}
-            thumbColor="#fff"
+            thumbColor={colors.onPrimary}
             disabled={saving}
           />
         </View>
@@ -244,7 +325,7 @@ export function NotificationSettingsScreen({ onBack }: NotificationSettingsScree
             value={settings.goalAchievementsEnabled}
             onValueChange={v => handleToggle('goalAchievementsEnabled', v)}
             trackColor={{ false: colors.border, true: colors.primary }}
-            thumbColor="#fff"
+            thumbColor={colors.onPrimary}
             disabled={saving}
           />
         </View>
@@ -264,7 +345,7 @@ export function NotificationSettingsScreen({ onBack }: NotificationSettingsScree
             value={settings.workoutRemindersEnabled}
             onValueChange={v => handleToggle('workoutRemindersEnabled', v)}
             trackColor={{ false: colors.border, true: colors.primary }}
-            thumbColor="#fff"
+            thumbColor={colors.onPrimary}
             disabled={saving}
           />
         </View>
@@ -292,7 +373,7 @@ export function NotificationSettingsScreen({ onBack }: NotificationSettingsScree
             value={localSettings.enabled}
             onValueChange={handleLocalToggle}
             trackColor={{ false: colors.border, true: colors.primary }}
-            thumbColor="#fff"
+            thumbColor={colors.onPrimary}
             disabled={saving}
           />
         </View>
@@ -307,7 +388,9 @@ export function NotificationSettingsScreen({ onBack }: NotificationSettingsScree
                   Bắt đầu
                 </Text>
                 <View style={styles.timeControl}>
-                  <TouchableOpacity
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Giảm giờ bắt đầu"
                     onPress={() => adjustStartHour(-1)}
                     style={[
                       styles.timeAdjustButton,
@@ -316,11 +399,13 @@ export function NotificationSettingsScreen({ onBack }: NotificationSettingsScree
                     disabled={localSettings.startHour <= 0}
                   >
                     <Text style={[styles.timeAdjustText, { color: colors.text, ...typography.body }]}>−</Text>
-                  </TouchableOpacity>
+                  </Pressable>
                   <Text style={[styles.timeText, { color: colors.text, ...typography.body }]}>
                     {String(localSettings.startHour).padStart(2, '0')}:00
                   </Text>
-                  <TouchableOpacity
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Tăng giờ bắt đầu"
                     onPress={() => adjustStartHour(1)}
                     style={[
                       styles.timeAdjustButton,
@@ -329,7 +414,7 @@ export function NotificationSettingsScreen({ onBack }: NotificationSettingsScree
                     disabled={localSettings.startHour >= localSettings.endHour - 1}
                   >
                     <Text style={[styles.timeAdjustText, { color: colors.text, ...typography.body }]}>+</Text>
-                  </TouchableOpacity>
+                  </Pressable>
                 </View>
               </View>
               <View style={styles.timeItem}>
@@ -337,7 +422,9 @@ export function NotificationSettingsScreen({ onBack }: NotificationSettingsScree
                   Kết thúc
                 </Text>
                 <View style={styles.timeControl}>
-                  <TouchableOpacity
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Giảm giờ kết thúc"
                     onPress={() => adjustEndHour(-1)}
                     style={[
                       styles.timeAdjustButton,
@@ -346,11 +433,13 @@ export function NotificationSettingsScreen({ onBack }: NotificationSettingsScree
                     disabled={localSettings.endHour <= localSettings.startHour + 1}
                   >
                     <Text style={[styles.timeAdjustText, { color: colors.text, ...typography.body }]}>−</Text>
-                  </TouchableOpacity>
+                  </Pressable>
                   <Text style={[styles.timeText, { color: colors.text, ...typography.body }]}>
                     {String(localSettings.endHour).padStart(2, '0')}:00
                   </Text>
-                  <TouchableOpacity
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Tăng giờ kết thúc"
                     onPress={() => adjustEndHour(1)}
                     style={[
                       styles.timeAdjustButton,
@@ -359,7 +448,7 @@ export function NotificationSettingsScreen({ onBack }: NotificationSettingsScree
                     disabled={localSettings.endHour >= 23}
                   >
                     <Text style={[styles.timeAdjustText, { color: colors.text, ...typography.body }]}>+</Text>
-                  </TouchableOpacity>
+                  </Pressable>
                 </View>
               </View>
             </View>
@@ -410,6 +499,9 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   backButton: {
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingVertical: 4,
   },
   backText: {
