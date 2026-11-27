@@ -11,19 +11,20 @@ import {
   Timer,
   Trash2,
   Trophy,
+  X,
 } from 'lucide-react-native';
 import React, { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import {
   Alert,
   KeyboardAvoidingView,
-  LayoutAnimation,
+  Modal,
   Platform,
   Pressable,
   RefreshControl,
+  ScrollView,
   StyleSheet,
   Text,
-  UIManager,
   View,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -49,10 +50,6 @@ import {
 } from '../goalProgress';
 import type { Goal, GoalType, GoalUpsertRequest } from '../types';
 import { useGoals, useWeeklyExerciseTotals } from '../useGoals';
-
-if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
 
 const GOAL_TYPES = [
   'DAILY_STEPS',
@@ -145,7 +142,7 @@ const GoalForm = memo(function GoalForm({
   }, [goal, reset]);
 
   return (
-    <Card style={{ gap: spacing.md }}>
+    <View style={{ gap: spacing.md }}>
       <View style={[styles.formHeader, { gap: spacing.sm }]}>
         <View
           style={[
@@ -165,6 +162,16 @@ const GoalForm = memo(function GoalForm({
             Chọn loại chỉ số và ngưỡng mục tiêu phù hợp
           </Text>
         </View>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Đóng"
+          onPress={onCancel}
+          style={({ pressed }) => [
+            styles.closeBtn,
+            { opacity: pressed ? 0.65 : 1 },
+          ]}>
+          <X size={20} color={colors.textMuted} strokeWidth={2} />
+        </Pressable>
       </View>
 
       <View style={styles.chips}>
@@ -327,7 +334,7 @@ const GoalForm = memo(function GoalForm({
         />
         <Button title="Hủy" variant="ghost" onPress={onCancel} />
       </View>
-    </Card>
+    </View>
   );
 });
 
@@ -488,7 +495,7 @@ const GoalRowItem = memo(function GoalRowItem({
 });
 
 export function GoalsScreen() {
-  const { colors, spacing, typography } = useTheme();
+  const { colors, radius, spacing, typography } = useTheme();
   const insets = useSafeAreaInsets();
   const daily = useTodayActivity();
   const refreshDaily = useTodayActivity(state => state.refresh);
@@ -499,11 +506,7 @@ export function GoalsScreen() {
   const [showForm, setShowForm] = useState(false);
 
   useEffect(() => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-  }, [showForm, goals.length]);
-
-  useEffect(() => {
-    refreshDaily().catch(() => {});
+    refreshDaily().catch(() => { });
   }, [refreshDaily]);
 
   const closeForm = useCallback(() => {
@@ -527,7 +530,7 @@ export function GoalsScreen() {
   );
 
   const handleRefresh = useCallback(() => {
-    refreshDaily().catch(() => {});
+    refreshDaily().catch(() => { });
     list.refetch();
   }, [refreshDaily, list]);
 
@@ -561,16 +564,14 @@ export function GoalsScreen() {
             Theo dõi tiến độ ngày & tuần
           </Text>
         </View>
-        {!showForm ? (
-          <Button
-            title="+ Thêm"
-            variant="primary"
-            onPress={() => {
-              setEditing(null);
-              setShowForm(true);
-            }}
-          />
-        ) : null}
+        <Button
+          title="+ Thêm"
+          variant="primary"
+          onPress={() => {
+            setEditing(null);
+            setShowForm(true);
+          }}
+        />
       </View>
 
       {!list.isLoading && !list.isError && goals.length > 0 ? (
@@ -589,22 +590,6 @@ export function GoalsScreen() {
             style={styles.flex}
           />
         </View>
-      ) : null}
-
-      {showForm ? (
-        <GoalForm
-          goal={editing}
-          submitting={create.isPending || update.isPending}
-          error={(create.error ?? update.error)?.message}
-          onCancel={closeForm}
-          onSubmit={request => {
-            if (editing) {
-              update.mutate({ id: editing.id, request }, { onSuccess: closeForm });
-            } else {
-              create.mutate(request, { onSuccess: closeForm });
-            }
-          }}
-        />
       ) : null}
 
       {list.isLoading ? (
@@ -648,30 +633,86 @@ export function GoalsScreen() {
     <SafeAreaView
       edges={['top']}
       style={[styles.container, { backgroundColor: colors.background }]}>
-      <KeyboardAvoidingView
-        style={styles.container}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <FlashList
-          data={list.isLoading || list.isError ? [] : goals}
-          keyExtractor={keyExtractor}
-          renderItem={renderItem}
-          keyboardShouldPersistTaps="handled"
-          refreshControl={
-            <RefreshControl
-              refreshing={list.isRefetching}
-              onRefresh={handleRefresh}
-              tintColor={colors.primary}
+      <FlashList
+        data={list.isLoading || list.isError ? [] : goals}
+        keyExtractor={keyExtractor}
+        renderItem={renderItem}
+        keyboardShouldPersistTaps="handled"
+        refreshControl={
+          <RefreshControl
+            refreshing={list.isRefetching}
+            onRefresh={handleRefresh}
+            tintColor={colors.primary}
+          />
+        }
+        contentContainerStyle={{
+          padding: spacing.lg,
+          paddingBottom: Math.max(insets.bottom, spacing.lg),
+        }}
+        ListHeaderComponent={listHeader}
+        ListEmptyComponent={listEmpty}
+        ListFooterComponent={listFooter}
+      />
+
+      <Modal
+        visible={showForm}
+        transparent
+        statusBarTranslucent
+        animationType="slide"
+        onRequestClose={closeForm}>
+        <KeyboardAvoidingView
+          style={styles.modalBackdrop}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Đóng hộp thoại mục tiêu"
+            style={styles.backdropDismiss}
+            onPress={closeForm}
+          />
+          <View
+            style={[
+              styles.bottomSheet,
+              {
+                backgroundColor: colors.surface,
+                borderTopColor: colors.border,
+                borderTopLeftRadius: radius.xl,
+                borderTopRightRadius: radius.xl,
+                paddingHorizontal: spacing.lg,
+                paddingTop: spacing.sm,
+                paddingBottom: Math.max(insets.bottom, spacing.lg),
+              },
+            ]}>
+            <View
+              style={[
+                styles.sheetHandle,
+                {
+                  backgroundColor: colors.border,
+                  borderRadius: radius.pill,
+                  marginBottom: spacing.md,
+                },
+              ]}
             />
-          }
-          contentContainerStyle={{
-            padding: spacing.lg,
-            paddingBottom: Math.max(insets.bottom, spacing.lg),
-          }}
-          ListHeaderComponent={listHeader}
-          ListEmptyComponent={listEmpty}
-          ListFooterComponent={listFooter}
-        />
-      </KeyboardAvoidingView>
+            <ScrollView
+              bounces={false}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}>
+              <GoalForm
+                goal={editing}
+                submitting={create.isPending || update.isPending}
+                error={(create.error ?? update.error)?.message}
+                onCancel={closeForm}
+                onSubmit={request => {
+                  if (editing) {
+                    update.mutate({ id: editing.id, request }, { onSuccess: closeForm });
+                  } else {
+                    create.mutate(request, { onSuccess: closeForm });
+                  }
+                }}
+              />
+            </ScrollView>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -758,5 +799,28 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  closeBtn: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    justifyContent: 'flex-end',
+  },
+  backdropDismiss: {
+    flex: 1,
+  },
+  bottomSheet: {
+    maxHeight: '88%',
+    borderTopWidth: 1,
+  },
+  sheetHandle: {
+    width: 40,
+    height: 4,
+    alignSelf: 'center',
   },
 });
