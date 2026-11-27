@@ -1,6 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { FlashList } from '@shopify/flash-list';
 import {
+  Calendar,
   CalendarCheck,
   CheckCircle2,
   Flame,
@@ -43,6 +44,7 @@ import {
 import { useTodayActivity } from '../../../stores/useTodayActivity';
 import { tabularNums } from '../../../theme';
 import { todayIsoDate } from '../../../utils/date';
+import { CalendarPickerModal } from '../components/CalendarPickerModal';
 import {
   formatGoalProgress,
   GOAL_TYPE_LABEL,
@@ -131,6 +133,9 @@ const GoalForm = memo(function GoalForm({
 
   const type = watch('type');
   const currentTarget = watch('targetValue');
+  const startsOnValue = watch('startsOn');
+  const endsOnValue = watch('endsOn');
+  const [pickerTarget, setPickerTarget] = useState<'startsOn' | 'endsOn' | null>(null);
 
   useEffect(() => {
     reset({
@@ -281,37 +286,115 @@ const GoalForm = memo(function GoalForm({
           <Controller
             control={control}
             name="startsOn"
-            render={({ field: { onChange, onBlur, value } }) => (
-              <Input
-                label="Bắt đầu"
-                placeholder="yyyy-MM-dd"
-                autoCapitalize="none"
-                value={value}
-                onChangeText={onChange}
-                onBlur={onBlur}
-                error={errors.startsOn?.message}
-              />
+            render={({ field: { value } }) => (
+              <View style={{ gap: spacing.xs }}>
+                <Text style={[typography.label, { color: colors.text }]}>
+                  Bắt đầu
+                </Text>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Chọn ngày bắt đầu"
+                  onPress={() => setPickerTarget('startsOn')}
+                  style={({ pressed }) => [
+                    styles.dateField,
+                    {
+                      backgroundColor: colors.surface,
+                      borderColor: errors.startsOn ? colors.danger : colors.border,
+                      borderRadius: radius.md,
+                      paddingHorizontal: spacing.md,
+                      gap: spacing.xs,
+                      opacity: pressed ? 0.8 : 1,
+                    },
+                  ]}>
+                  <Calendar size={16} color={colors.primary} strokeWidth={2} />
+                  <Text
+                    numberOfLines={1}
+                    style={[typography.body, tabularNums, { color: colors.text }]}>
+                    {value || 'Chọn ngày'}
+                  </Text>
+                </Pressable>
+                {errors.startsOn?.message ? (
+                  <Text style={[typography.caption, { color: colors.danger }]}>
+                    {errors.startsOn.message}
+                  </Text>
+                ) : null}
+              </View>
             )}
           />
         </View>
+
         <View style={styles.flex}>
           <Controller
             control={control}
             name="endsOn"
-            render={({ field: { onChange, onBlur, value } }) => (
-              <Input
-                label="Kết thúc (tùy chọn)"
-                placeholder="yyyy-MM-dd"
-                autoCapitalize="none"
-                value={value}
-                onChangeText={onChange}
-                onBlur={onBlur}
-                error={errors.endsOn?.message}
-              />
+            render={({ field: { value } }) => (
+              <View style={{ gap: spacing.xs }}>
+                <Text style={[typography.label, { color: colors.text }]}>
+                  Kết thúc (tùy chọn)
+                </Text>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Chọn ngày kết thúc"
+                  onPress={() => setPickerTarget('endsOn')}
+                  style={({ pressed }) => [
+                    styles.dateField,
+                    {
+                      backgroundColor: colors.surface,
+                      borderColor: errors.endsOn ? colors.danger : colors.border,
+                      borderRadius: radius.md,
+                      paddingHorizontal: spacing.md,
+                      gap: spacing.xs,
+                      opacity: pressed ? 0.8 : 1,
+                    },
+                  ]}>
+                  <Calendar
+                    size={16}
+                    color={value ? colors.primary : colors.textMuted}
+                    strokeWidth={2}
+                  />
+                  <Text
+                    numberOfLines={1}
+                    style={[
+                      typography.body,
+                      tabularNums,
+                      {
+                        flex: 1,
+                        color: value ? colors.text : colors.textMuted,
+                      },
+                    ]}>
+                    {value || 'Không giới hạn'}
+                  </Text>
+                </Pressable>
+                {errors.endsOn?.message ? (
+                  <Text style={[typography.caption, { color: colors.danger }]}>
+                    {errors.endsOn.message}
+                  </Text>
+                ) : null}
+              </View>
             )}
           />
         </View>
       </View>
+
+      <CalendarPickerModal
+        visible={pickerTarget !== null}
+        title={pickerTarget === 'startsOn' ? 'Chọn ngày bắt đầu' : 'Chọn ngày kết thúc'}
+        selectedDate={pickerTarget === 'startsOn' ? startsOnValue : endsOnValue}
+        minDate={pickerTarget === 'endsOn' ? startsOnValue : undefined}
+        allowClear={pickerTarget === 'endsOn'}
+        onSelect={iso => {
+          if (pickerTarget === 'startsOn') {
+            setValue('startsOn', iso, { shouldValidate: true });
+            if (endsOnValue && endsOnValue < iso) {
+              setValue('endsOn', iso, { shouldValidate: true });
+            }
+          } else if (pickerTarget === 'endsOn') {
+            setValue('endsOn', iso, { shouldValidate: true });
+          }
+        }}
+        onClear={() => setValue('endsOn', '', { shouldValidate: true })}
+        onClose={() => setPickerTarget(null)}
+      />
 
       {error ? (
         <Text style={[typography.caption, { color: colors.danger }]}>{error}</Text>
@@ -765,6 +848,12 @@ const styles = StyleSheet.create({
   },
   twoCol: {
     flexDirection: 'row',
+  },
+  dateField: {
+    minHeight: 48,
+    borderWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   row: {
     flexDirection: 'row',

@@ -8,7 +8,10 @@ import type {
   ExerciseActiveSession,
   NotificationChannelId,
 } from '../../types/native-interface';
+import { todayIsoDate } from '../../utils/date';
 import { notificationApi } from './notificationApi';
+
+const shownGoalFcmKeys = new Set<string>();
 
 function hashString(str: string): number {
   let hash = 0;
@@ -61,7 +64,23 @@ export function setupForegroundFcmNotification(): () => void {
         typeof remoteMessage.data?.type === 'string'
           ? remoteMessage.data.type
           : undefined;
-      const msgKey = remoteMessage.messageId || `${Date.now()}`;
+      const goalType =
+        typeof remoteMessage.data?.goalType === 'string'
+          ? remoteMessage.data.goalType
+          : undefined;
+
+      if (msgType === 'GOAL_ACHIEVED') {
+        const goalDedupeKey = `${goalType ?? 'UNKNOWN'}_${todayIsoDate()}`;
+        if (shownGoalFcmKeys.has(goalDedupeKey)) {
+          return;
+        }
+        shownGoalFcmKeys.add(goalDedupeKey);
+      }
+
+      const msgKey =
+        msgType === 'GOAL_ACHIEVED'
+          ? `goal_${goalType ?? 'UNKNOWN'}_${todayIsoDate()}`
+          : remoteMessage.messageId || `${Date.now()}`;
 
       await Notification.show({
         id: hashString(`fcm_${msgKey}`),
