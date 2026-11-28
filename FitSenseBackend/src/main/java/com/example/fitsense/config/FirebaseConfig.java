@@ -9,6 +9,7 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Condition;
@@ -52,8 +53,11 @@ public class FirebaseConfig {
 
     private GoogleCredentials loadCredentials() throws IOException {
         if (StringUtils.hasText(serviceAccountJson)) {
-            try (InputStream in = new ByteArrayInputStream(
-                    serviceAccountJson.getBytes(StandardCharsets.UTF_8))) {
+            String trimmed = serviceAccountJson.trim();
+            byte[] bytes = trimmed.startsWith("{")
+                    ? trimmed.getBytes(StandardCharsets.UTF_8)
+                    : Base64.getDecoder().decode(trimmed);
+            try (InputStream in = new ByteArrayInputStream(bytes)) {
                 return GoogleCredentials.fromStream(in);
             }
         }
