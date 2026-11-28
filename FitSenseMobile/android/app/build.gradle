@@ -149,7 +149,7 @@ android {
             // Reads FITSENSE_UPLOAD_STORE_FILE / PASSWORD / ALIAS env vars when provided;
             // falls back to debug keystore for local unsigned builds.
             signingConfig hasReleaseKeystore ? signingConfigs.release : signingConfigs.debug
-            manifestPlaceholders = [usesCleartextTraffic: "false", googleMapsApiKey: googleMapsApiKey]
+            manifestPlaceholders = [usesCleartextTraffic: "true", googleMapsApiKey: googleMapsApiKey]
             minifyEnabled enableProguardInReleaseBuilds
             proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
         }
