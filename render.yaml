@@ -1,0 +1,24 @@
+services:
+  - type: web
+    name: fitsense-backend
+    runtime: docker
+    rootDir: FitSenseBackend
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /actuator/health
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: prod
+      - key: FITSENSE_AUTH_MODE
+        value: firebase
+      - key: DB_URL
+        sync: false
+      - key: DB_USERNAME
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: FIREBASE_PROJECT_ID
+        sync: false
+      - key: FIREBASE_SERVICE_ACCOUNT_JSON
+        sync: false
+      - key: NOTIFICATIONS_ADMIN_KEY
+        generateValue: true

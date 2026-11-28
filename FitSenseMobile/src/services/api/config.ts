@@ -11,10 +11,10 @@ const isAndroidEmulator =
     (Platform.constants as any)?.Fingerprint?.toLowerCase().includes('generic') ||
     (Platform.constants as any)?.Brand?.toLowerCase().includes('google'));
 
-export const API_BASE_URL = __DEV__
-  ? isAndroidEmulator
-    ? 'http://10.0.2.2:8080'
-    : 'http://192.168.1.43:8080'
-  : 'https://api.fitsense.app';
-
+// export const API_BASE_URL = __DEV__
+//   ? isAndroidEmulator
+//     ? 'http://10.0.2.2:8080'
+//     : 'http://192.168.1.43:8080'
+//   : 'https://api.fitsense.app';
+export const API_BASE_URL = 'http://192.168.1.43:8080';
 export const API_TIMEOUT_MS = 6_000;
